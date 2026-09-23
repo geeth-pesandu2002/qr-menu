@@ -5,16 +5,13 @@ import {
   errorResponse,
   AuthError,
 } from "@/lib/middleware/auth";
-import {
-  getMenuItems,
-  createMenuItem,
-} from "@/lib/db-service";
 
 export const runtime = "nodejs";
 
 export async function GET(request: NextRequest) {
   try {
     console.log("🟢 GET /api/menu-items called");
+    const { getMenuItems } = await import("@/lib/db-service");
     const items = await getMenuItems();
     console.log("🟢 Items retrieved:", items?.length || 0);
     return NextResponse.json(
@@ -39,6 +36,7 @@ export async function POST(request: NextRequest) {
     requireRole(token.role, "owner");
 
     const body = await request.json();
+    const { createMenuItem } = await import("@/lib/db-service");
     const item = await createMenuItem(body, token.uid);
 
     return NextResponse.json(
