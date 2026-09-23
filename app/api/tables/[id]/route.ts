@@ -14,10 +14,11 @@ import {
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const table = await getTableById(params.id);
+    const { id } = await params;
+    const table = await getTableById(id);
     if (!table) {
       return NextResponse.json(
         { success: false, error: "Table not found", timestamp: Date.now() },
@@ -36,9 +37,10 @@ export async function GET(
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const authHeader = request.headers.get("Authorization");
     if (!authHeader) {
       throw new AuthError("Authorization required", 401);
@@ -48,7 +50,7 @@ export async function PUT(
     requireRole(token.role, "owner");
 
     const body = await request.json();
-    const table = await updateTable(params.id, body);
+    const table = await updateTable(id, body);
 
     return NextResponse.json(
       { success: true, data: table, timestamp: Date.now() },
@@ -61,9 +63,10 @@ export async function PUT(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const authHeader = request.headers.get("Authorization");
     if (!authHeader) {
       throw new AuthError("Authorization required", 401);
@@ -72,7 +75,7 @@ export async function DELETE(
     const token = await verifyToken(authHeader);
     requireRole(token.role, "owner");
 
-    await deleteTable(params.id);
+    await deleteTable(id);
 
     return NextResponse.json(
       { success: true, timestamp: Date.now() },

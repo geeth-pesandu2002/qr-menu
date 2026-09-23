@@ -13,10 +13,11 @@ import {
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const category = await getCategoryById(params.id);
+    const { id } = await params;
+    const category = await getCategoryById(id);
     if (!category) {
       return NextResponse.json(
         { success: false, error: "Category not found", timestamp: Date.now() },
@@ -35,9 +36,10 @@ export async function GET(
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const authHeader = request.headers.get("Authorization");
     if (!authHeader) {
       throw new AuthError("Authorization required", 401);
@@ -47,7 +49,7 @@ export async function PUT(
     requireRole(token.role, "owner");
 
     const body = await request.json();
-    const category = await updateCategory(params.id, body);
+    const category = await updateCategory(id, body);
 
     return NextResponse.json(
       { success: true, data: category, timestamp: Date.now() },
@@ -60,9 +62,10 @@ export async function PUT(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const authHeader = request.headers.get("Authorization");
     if (!authHeader) {
       throw new AuthError("Authorization required", 401);
@@ -71,7 +74,7 @@ export async function DELETE(
     const token = await verifyToken(authHeader);
     requireRole(token.role, "owner");
 
-    await deleteCategory(params.id);
+    await deleteCategory(id);
 
     return NextResponse.json(
       { success: true, timestamp: Date.now() },

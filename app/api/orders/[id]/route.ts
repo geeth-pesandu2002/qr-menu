@@ -1,39 +1,27 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
-  extractToken,
   verifyToken,
-  requireAnyRole,
+  requireRole,
   errorResponse,
   AuthError,
 } from "@/lib/middleware/auth";
-import { getOrderById, updateOrderStatus } from "@/lib/db-service";
+import {
+  getOrderById,
+  updateOrderStatus,
+} from "@/lib/db-service";
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const order = await getOrderById(params.id);
-
+    const { id } = await params;
+    const order = await getOrderById(id);
     if (!order) {
       return NextResponse.json(
         { success: false, error: "Order not found", timestamp: Date.now() },
         { status: 404 }
       );
-    }
-
-    // Check permission: customer can only see their own order
-    const authHeader = request.headers.get("Authorization");
-    if (!authHeader) {
-      const sessionId = request.nextUrl.searchParams.get("sessionId");
-      if (!sessionId || sessionId !== order.sessionId) {
-        throw new AuthError("Cannot view this order", 403);
-      }
-    } else {
-      const token = await verifyToken(authHeader);
-      if (token.role === "customer" && token.uid !== order.sessionId) {
-        throw new AuthError("Cannot view this order", 403);
-      }
     }
 
     return NextResponse.json(
@@ -47,28 +35,20 @@ export async function GET(
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const authHeader = request.headers.get("Authorization");
     if (!authHeader) {
       throw new AuthError("Authorization required", 401);
     }
 
     const token = await verifyToken(authHeader);
-    requireAnyRole(token.role, ["kitchen", "owner"]);
+    requireRole(token.role, "kitchen");
 
     const body = await request.json();
-    const { status } = body;
-
-    if (!status) {
-      return NextResponse.json(
-        { success: false, error: "status required", timestamp: Date.now() },
-        { status: 400 }
-      );
-    }
-
-    const order = await updateOrderStatus(params.id, status, token.uid);
+    const order = await updateOrderStatus(id, body.status, token.uid);
 
     return NextResponse.json(
       { success: true, data: order, timestamp: Date.now() },
