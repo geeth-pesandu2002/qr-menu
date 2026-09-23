@@ -28,7 +28,8 @@ const tables = Array.from({ length: 8 }, (_, i) => ({
 }));
 
 async function seed() {
-  const { adminDb } = await import("../src/lib/firebase-admin");
+  const { getAdminDb } = await import("../src/lib/firebase-admin");
+  const adminDb = getAdminDb();
   const batch = adminDb.batch();
 
   categories.forEach((c) =>

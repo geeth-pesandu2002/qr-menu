@@ -1,7 +1,7 @@
 // src/lib/db-service.ts
 // Database access layer - reusable functions for all API endpoints
 
-import { adminDb } from "@/lib/firebase-admin";
+import { getAdminDb } from "@/lib/firebase-admin";
 import {
   Order,
   MenuItem,
@@ -30,7 +30,7 @@ export async function createOrder(
   const subtotal = lines.reduce((sum, line) => sum + line.lineTotal, 0);
   const total = subtotal + tax + serviceCharge;
 
-  const orderRef = adminDb.collection("orders").doc();
+  const orderRef = getAdminDb().collection("orders").doc();
 
   const order: Order = {
     id: orderRef.id,
@@ -61,7 +61,7 @@ export async function createOrder(
 }
 
 export async function getOrderById(orderId: string): Promise<Order | null> {
-  const doc = await adminDb.collection("orders").doc(orderId).get();
+  const doc = await getAdminDb().collection("orders").doc(orderId).get();
   return (doc.data() as Order) || null;
 }
 
@@ -69,7 +69,7 @@ export async function getOrdersByTableAndStatus(
   tableId: string,
   status?: OrderStatus
 ): Promise<Order[]> {
-  let query: FirebaseFirestore.Query = adminDb
+  let query: FirebaseFirestore.Query = getAdminDb()
     .collection("orders")
     .where("tableId", "==", tableId);
 
@@ -85,7 +85,7 @@ export async function getOrdersByDateRange(
   startDate: number,
   endDate: number
 ): Promise<Order[]> {
-  const snapshot = await adminDb
+  const snapshot = await getAdminDb()
     .collection("orders")
     .where("createdAt", ">=", startDate)
     .where("createdAt", "<=", endDate)
@@ -116,7 +116,7 @@ export async function updateOrderStatus(
     changedBy,
   };
 
-  await adminDb.collection("orders").doc(orderId).update({
+  await getAdminDb().collection("orders").doc(orderId).update({
     status: newStatus,
     statusHistory: [...order.statusHistory, statusHistory],
     updatedAt: Date.now(),
@@ -128,7 +128,7 @@ export async function updateOrderStatus(
 // ===== MENU ITEMS =====
 
 export async function getMenuItems(): Promise<MenuItem[]> {
-  const snapshot = await adminDb
+  const snapshot = await getAdminDb()
     .collection("menuItems")
     .orderBy("sortOrder", "asc")
     .get();
@@ -137,7 +137,7 @@ export async function getMenuItems(): Promise<MenuItem[]> {
 }
 
 export async function getMenuItemById(itemId: string): Promise<MenuItem | null> {
-  const doc = await adminDb.collection("menuItems").doc(itemId).get();
+  const doc = await getAdminDb().collection("menuItems").doc(itemId).get();
   return (doc.data() as MenuItem) || null;
 }
 
@@ -145,7 +145,7 @@ export async function createMenuItem(
   item: Omit<MenuItem, "id" | "createdAt" | "updatedAt">,
   createdBy: string
 ): Promise<MenuItem> {
-  const itemRef = adminDb.collection("menuItems").doc();
+  const itemRef = getAdminDb().collection("menuItems").doc();
 
   const newItem: MenuItem = {
     ...item,
@@ -163,7 +163,7 @@ export async function updateMenuItem(
   itemId: string,
   updates: Partial<MenuItem>
 ): Promise<MenuItem> {
-  await adminDb
+  await getAdminDb()
     .collection("menuItems")
     .doc(itemId)
     .update({
@@ -175,13 +175,13 @@ export async function updateMenuItem(
 }
 
 export async function deleteMenuItem(itemId: string): Promise<void> {
-  await adminDb.collection("menuItems").doc(itemId).delete();
+  await getAdminDb().collection("menuItems").doc(itemId).delete();
 }
 
 // ===== CATEGORIES =====
 
 export async function getCategories(): Promise<Category[]> {
-  const snapshot = await adminDb
+  const snapshot = await getAdminDb()
     .collection("categories")
     .orderBy("sortOrder", "asc")
     .get();
@@ -190,7 +190,7 @@ export async function getCategories(): Promise<Category[]> {
 }
 
 export async function getCategoryById(categoryId: string): Promise<Category | null> {
-  const doc = await adminDb.collection("categories").doc(categoryId).get();
+  const doc = await getAdminDb().collection("categories").doc(categoryId).get();
   return (doc.data() as Category) || null;
 }
 
@@ -198,7 +198,7 @@ export async function createCategory(
   category: Omit<Category, "id" | "createdAt" | "updatedAt">,
   createdBy: string
 ): Promise<Category> {
-  const catRef = adminDb.collection("categories").doc();
+  const catRef = getAdminDb().collection("categories").doc();
 
   const newCategory: Category = {
     ...category,
@@ -216,7 +216,7 @@ export async function updateCategory(
   categoryId: string,
   updates: Partial<Category>
 ): Promise<Category> {
-  await adminDb
+  await getAdminDb()
     .collection("categories")
     .doc(categoryId)
     .update({
@@ -228,13 +228,13 @@ export async function updateCategory(
 }
 
 export async function deleteCategory(categoryId: string): Promise<void> {
-  await adminDb.collection("categories").doc(categoryId).delete();
+  await getAdminDb().collection("categories").doc(categoryId).delete();
 }
 
 // ===== TABLES =====
 
 export async function getTables(): Promise<Table[]> {
-  const snapshot = await adminDb
+  const snapshot = await getAdminDb()
     .collection("tables")
     .orderBy("createdAt", "asc")
     .get();
@@ -243,7 +243,7 @@ export async function getTables(): Promise<Table[]> {
 }
 
 export async function getTableByQRToken(qrToken: string): Promise<Table | null> {
-  const snapshot = await adminDb
+  const snapshot = await getAdminDb()
     .collection("tables")
     .where("qrToken", "==", qrToken)
     .limit(1)
@@ -254,7 +254,7 @@ export async function getTableByQRToken(qrToken: string): Promise<Table | null> 
 }
 
 export async function getTableById(tableId: string): Promise<Table | null> {
-  const doc = await adminDb.collection("tables").doc(tableId).get();
+  const doc = await getAdminDb().collection("tables").doc(tableId).get();
   return (doc.data() as Table) || null;
 }
 
@@ -262,7 +262,7 @@ export async function createTable(
   table: Omit<Table, "id" | "createdAt" | "updatedAt">,
   createdBy: string
 ): Promise<Table> {
-  const tableRef = adminDb.collection("tables").doc();
+  const tableRef = getAdminDb().collection("tables").doc();
 
   const newTable: Table = {
     ...table,
@@ -280,7 +280,7 @@ export async function updateTable(
   tableId: string,
   updates: Partial<Table>
 ): Promise<Table> {
-  await adminDb
+  await getAdminDb()
     .collection("tables")
     .doc(tableId)
     .update({
@@ -292,7 +292,7 @@ export async function updateTable(
 }
 
 export async function deleteTable(tableId: string): Promise<void> {
-  await adminDb.collection("tables").doc(tableId).delete();
+  await getAdminDb().collection("tables").doc(tableId).delete();
 }
 
 // ===== ANALYTICS =====
