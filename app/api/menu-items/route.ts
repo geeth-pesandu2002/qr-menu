@@ -1,11 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import {
-  verifyToken,
-  requireRole,
-  errorResponse,
-  AuthError,
-} from "@/lib/middleware/auth";
-
 export const runtime = "nodejs";
 
 export async function GET(request: NextRequest) {
@@ -20,12 +13,22 @@ export async function GET(request: NextRequest) {
     );
   } catch (error) {
     console.error("🔴 Error in GET /api/menu-items:", error);
-    return errorResponse(error);
+    return new Response(
+      JSON.stringify({
+        success: false,
+        error: error instanceof Error ? error.message : "Unknown error",
+        timestamp: Date.now(),
+      }),
+      { status: 500, headers: { "content-type": "application/json" } }
+    );
   }
 }
 
 export async function POST(request: NextRequest) {
   try {
+    const { verifyToken, requireRole, errorResponse, AuthError } = await import(
+      "@/lib/middleware/auth"
+    );
     console.log("🟢 POST /api/menu-items called");
     const authHeader = request.headers.get("Authorization");
     if (!authHeader) {
@@ -45,6 +48,7 @@ export async function POST(request: NextRequest) {
     );
   } catch (error) {
     console.error("🔴 Error in POST /api/menu-items:", error);
+    const { errorResponse } = await import("@/lib/middleware/auth");
     return errorResponse(error);
   } 
 }
