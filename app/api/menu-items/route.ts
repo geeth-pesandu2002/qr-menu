@@ -10,6 +10,8 @@ import {
   createMenuItem,
 } from "@/lib/db-service";
 
+export const runtime = "nodejs";
+
 export async function GET(request: NextRequest) {
   try {
     console.log("🟢 GET /api/menu-items called");
