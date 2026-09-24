@@ -1,161 +1,86 @@
-// src/lib/types.ts
-// Complete type definitions for DineGo app with full admin features
-
-export type OrderStatus = "RECEIVED" | "PREPARING" | "SERVED" | "COMPLETED";
+export type OrderStatus = "RECEIVED" | "PREPARING" | "SERVED" | "COMPLETED" | "CANCELLED";
 export type UserRole = "customer" | "kitchen" | "owner";
 
-// Category
 export interface Category {
   id: string;
   name: string;
+  icon?: string;
   sortOrder: number;
   imageUrl?: string;
-  isActive: boolean;
-  createdAt: number;
-  updatedAt: number;
-  createdBy: string;
+  isActive?: boolean;
 }
 
-// Menu Item Variant
 export interface Variant {
-  label: string;   // "Small", "Large"
-  price: number;   // cents: 450.00 = 45000
+  label: string;   // "Regular" | "Large"
+  price: number;   // price in Rs.
 }
 
-// Menu Item
 export interface MenuItem {
   id: string;
   name: string;
   description: string;
-  price: number;        // cents
+  price: number;        // price in Rs. (e.g. 1200)
   categoryId: string;
   imageUrl: string | null;
   isAvailable: boolean;
   sortOrder: number;
-  variants: Variant[];
-  createdAt: number;
-  updatedAt: number;
-  createdBy: string;
+  variants: Variant[];  // empty array = no variants
 }
 
-// Table with QR Token
-export interface Table {
-  id: string;
-  label: string;
-  qrToken: string;
-  qrUrl: string;
-  isActive: boolean;
-  createdAt: number;
-  updatedAt: number;
-  createdBy: string;
-}
-
-// Order Line Item
 export interface OrderLine {
+  id?: string;
   itemId: string;
-  name: string;
+  name: string;          
   variantLabel: string | null;
-  unitPrice: number;
+  unitPrice: number;     
   qty: number;
   note: string;
-  lineTotal: number;
+  imageUrl?: string | null;
+  lineTotal?: number;
 }
 
-// Order Status History
-export interface StatusHistory {
-  status: OrderStatus;
-  changedAt: number;
-  changedBy: string;
-}
-
-// Order
 export interface Order {
   id: string;
   tableId: string;
   tableLabel: string;
-  qrToken: string;
+  qrToken?: string;
   sessionId: string;
   status: OrderStatus;
   lines: OrderLine[];
   subtotal: number;
   serviceCharge: number;
-  tax: number;
+  tax?: number;
   total: number;
-  statusHistory: StatusHistory[];
-  createdAt: number;
+  createdAt: number;     // Date.now()
   updatedAt: number;
-  createdBy: string;
+  estimatedMinutes?: number;
 }
 
-// User Claims
-export interface UserClaims {
-  role: UserRole;
-  restaurantId?: string;
-  uid: string;
-  email?: string;
+export interface RestaurantTable {
+  id: string;
+  label: string;
+  seats?: number;
+  isActive: boolean;
+  qrToken?: string;
+  qrUrl?: string;
 }
 
-// API Response
-export interface ApiResponse<T> {
-  success: boolean;
-  data?: T;
-  error?: string;
-  timestamp: number;
-}
-
-// Analytics Query
-export interface AnalyticsQuery {
-  startDate: number;
-  endDate: number;
-  restaurantId?: string;
-}
-
-// Dashboard Stats
 export interface DashboardStats {
   totalOrders: number;
   totalRevenue: number;
   averageOrderValue: number;
   completedOrders: number;
   pendingOrders: number;
-  dateRange: {
-    start: number;
-    end: number;
-  };
 }
 
-// Top Items
-export interface TopItem {
-  itemId: string;
-  name: string;
-  qty: number;
-  revenue: number;
-  trend: "up" | "down" | "stable";
-}
+export const formatPrice = (amount: number) => {
+  return `Rs. ${amount.toLocaleString("en-LK", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
+};
 
-// QR Code
-export interface QRCodeData {
-  tableId: string;
-  tableLabel: string;
-  qrToken: string;
-  qrUrl: string;
-  dataUrl: string;
-}
-
-// Helpers
-export const formatPrice = (cents: number): string =>
-  `Rs. ${(cents / 100).toLocaleString("en-LK", { minimumFractionDigits: 2 })}`;
-
-export const centsToRupees = (cents: number): number => cents / 100;
-export const rupeesToCents = (rupees: number): number => Math.round(rupees * 100);
-
-// State Machine
 export const ALLOWED_STATUS_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
   "RECEIVED": ["PREPARING"],
   "PREPARING": ["SERVED"],
   "SERVED": ["COMPLETED"],
   "COMPLETED": [],
-};
-
-export const isValidStatusTransition = (from: OrderStatus, to: OrderStatus): boolean => {
-  return ALLOWED_STATUS_TRANSITIONS[from]?.includes(to) ?? false;
+  "CANCELLED": [],
 };
