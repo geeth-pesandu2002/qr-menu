@@ -6,8 +6,11 @@ export interface Category {
   name: string;
   icon?: string;
   sortOrder: number;
-  imageUrl?: string;
+  imageUrl?: string | null;
   isActive?: boolean;
+  createdAt?: number;
+  updatedAt?: number;
+  createdBy?: string;
 }
 
 export interface Variant {
@@ -25,7 +28,24 @@ export interface MenuItem {
   isAvailable: boolean;
   sortOrder: number;
   variants: Variant[];  // empty array = no variants
+  createdAt?: number;
+  updatedAt?: number;
+  createdBy?: string;
 }
+
+export interface Table {
+  id: string;
+  label: string;
+  seats?: number;
+  qrToken?: string;
+  qrUrl?: string;
+  isActive?: boolean;
+  createdAt?: number;
+  updatedAt?: number;
+  createdBy?: string;
+}
+
+export type RestaurantTable = Table;
 
 export interface OrderLine {
   id?: string;
@@ -37,6 +57,12 @@ export interface OrderLine {
   note: string;
   imageUrl?: string | null;
   lineTotal?: number;
+}
+
+export interface StatusHistory {
+  status: OrderStatus;
+  changedAt: number;
+  changedBy: string;
 }
 
 export interface Order {
@@ -51,18 +77,18 @@ export interface Order {
   serviceCharge: number;
   tax?: number;
   total: number;
+  statusHistory?: StatusHistory[];
   createdAt: number;     // Date.now()
   updatedAt: number;
+  createdBy?: string;
   estimatedMinutes?: number;
 }
 
-export interface RestaurantTable {
-  id: string;
-  label: string;
-  seats?: number;
-  isActive: boolean;
-  qrToken?: string;
-  qrUrl?: string;
+export interface UserClaims {
+  role: UserRole;
+  restaurantId?: string;
+  uid: string;
+  email?: string;
 }
 
 export interface DashboardStats {
@@ -71,6 +97,18 @@ export interface DashboardStats {
   averageOrderValue: number;
   completedOrders: number;
   pendingOrders: number;
+  dateRange?: {
+    start: number;
+    end: number;
+  };
+}
+
+export interface TopItem {
+  itemId: string;
+  name: string;
+  qty: number;
+  revenue: number;
+  trend: "up" | "down" | "stable";
 }
 
 export const formatPrice = (amount: number) => {
@@ -83,4 +121,8 @@ export const ALLOWED_STATUS_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
   "SERVED": ["COMPLETED"],
   "COMPLETED": [],
   "CANCELLED": [],
+};
+
+export const isValidStatusTransition = (from: OrderStatus, to: OrderStatus): boolean => {
+  return ALLOWED_STATUS_TRANSITIONS[from]?.includes(to) ?? false;
 };

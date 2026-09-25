@@ -1,16 +1,22 @@
 "use client";
 
 import React from "react";
-import Link from "next/link";
-import { useKitchen } from "@/src/context/KitchenContext";
+import { useRouter } from "next/navigation";
+import { useKitchen, KitchenOrder } from "@/src/context/KitchenContext";
 
 export default function KitchenDashboardPage() {
+  const router = useRouter();
   const { kitchenOrders, updateOrderStatus, setActiveOrder } = useKitchen();
 
   const newOrders = kitchenOrders.filter((o) => o.status === "RECEIVED");
   const preparingOrders = kitchenOrders.filter((o) => o.status === "PREPARING");
   const readyOrders = kitchenOrders.filter((o) => o.status === "SERVED");
   const completedOrders = kitchenOrders.filter((o) => o.status === "COMPLETED");
+
+  const handleCardClick = (order: KitchenOrder) => {
+    setActiveOrder(order);
+    router.push(`/kitchen/orders/${order.id}`);
+  };
 
   return (
     <div className="space-y-6 font-sans">
@@ -89,9 +95,7 @@ export default function KitchenDashboardPage() {
               newOrders.map((order) => (
                 <div
                   key={order.id}
-                  onClick={() => {
-                    setActiveOrder(order);
-                  }}
+                  onClick={() => handleCardClick(order)}
                   className="bg-white p-4 rounded-2xl border border-zinc-200 shadow-xs hover:shadow-md transition-all flex flex-col justify-between gap-3 group cursor-pointer"
                 >
                   <div className="flex justify-between items-start border-b border-zinc-100 pb-2.5">
@@ -122,17 +126,17 @@ export default function KitchenDashboardPage() {
                   </div>
 
                   <div className="pt-2">
-                    <Link
-                      href={`/kitchen/orders/${order.id}`}
+                    <button
                       onClick={(e) => {
                         e.stopPropagation();
                         updateOrderStatus(order.id, "PREPARING");
+                        router.push(`/kitchen/orders/${order.id}`);
                       }}
                       className="w-full py-2.5 rounded-xl bg-[#FF6B2C] hover:bg-[#E55A1F] text-white font-bold text-xs transition-all shadow-md shadow-[#FF6B2C]/20 flex items-center justify-center gap-1.5"
                     >
                       <span>▶</span>
                       <span>Start Preparing</span>
-                    </Link>
+                    </button>
                   </div>
                 </div>
               ))
@@ -160,9 +164,7 @@ export default function KitchenDashboardPage() {
               preparingOrders.map((order) => (
                 <div
                   key={order.id}
-                  onClick={() => {
-                    setActiveOrder(order);
-                  }}
+                  onClick={() => handleCardClick(order)}
                   className="bg-white p-4 rounded-2xl border border-zinc-200 shadow-xs hover:shadow-md transition-all flex flex-col justify-between gap-3 group cursor-pointer"
                 >
                   <div className="flex justify-between items-start border-b border-zinc-100 pb-2.5">
@@ -193,17 +195,17 @@ export default function KitchenDashboardPage() {
                   </div>
 
                   <div className="pt-2">
-                    <Link
-                      href={`/kitchen/orders/${order.id}`}
+                    <button
                       onClick={(e) => {
                         e.stopPropagation();
                         updateOrderStatus(order.id, "SERVED");
+                        router.push(`/kitchen/orders/${order.id}`);
                       }}
                       className="w-full py-2.5 rounded-xl bg-[#F4B400] hover:bg-amber-500 text-white font-bold text-xs transition-all shadow-md shadow-amber-400/20 flex items-center justify-center gap-1.5"
                     >
                       <span>📁</span>
                       <span>Mark as Ready</span>
-                    </Link>
+                    </button>
                   </div>
                 </div>
               ))
@@ -231,9 +233,7 @@ export default function KitchenDashboardPage() {
               readyOrders.map((order) => (
                 <div
                   key={order.id}
-                  onClick={() => {
-                    setActiveOrder(order);
-                  }}
+                  onClick={() => handleCardClick(order)}
                   className="bg-white p-4 rounded-2xl border border-zinc-200 shadow-xs hover:shadow-md transition-all flex flex-col justify-between gap-3 group cursor-pointer"
                 >
                   <div className="flex justify-between items-start border-b border-zinc-100 pb-2.5">
@@ -279,3 +279,4 @@ export default function KitchenDashboardPage() {
     </div>
   );
 }
+

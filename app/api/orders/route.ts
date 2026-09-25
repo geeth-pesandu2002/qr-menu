@@ -123,7 +123,7 @@ export async function POST(request: NextRequest) {
     const order = await createOrder(
       table.id,
       table.label,
-      table.qrToken,
+      table.qrToken || "",
       sessionId,
       orderLines,
       tax,

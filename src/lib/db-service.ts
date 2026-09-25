@@ -27,7 +27,10 @@ export async function createOrder(
   serviceCharge: number,
   createdBy: string
 ): Promise<Order> {
-  const subtotal = lines.reduce((sum, line) => sum + line.lineTotal, 0);
+  const subtotal = lines.reduce(
+    (sum, line) => sum + (line.lineTotal ?? line.unitPrice * line.qty),
+    0
+  );
   const total = subtotal + tax + serviceCharge;
 
   const orderRef = getAdminDb().collection("orders").doc();
@@ -118,7 +121,7 @@ export async function updateOrderStatus(
 
   await getAdminDb().collection("orders").doc(orderId).update({
     status: newStatus,
-    statusHistory: [...order.statusHistory, statusHistory],
+    statusHistory: [...(order.statusHistory || []), statusHistory],
     updatedAt: Date.now(),
   });
 
@@ -344,7 +347,7 @@ export async function getTopItems(
       };
 
       existing.qty += line.qty;
-      existing.revenue += line.lineTotal;
+      existing.revenue += line.lineTotal ?? line.unitPrice * line.qty;
 
       itemMap.set(key, existing);
     }
