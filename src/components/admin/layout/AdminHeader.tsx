@@ -30,8 +30,8 @@ const TITLE_MAP: Record<string, { title: string; subtitle: string }> = {
     subtitle: "Organize dishes into customer menu sections and control section visibility",
   },
   "/admin/tables": {
-    title: "Table & QR Management",
-    subtitle: "Configure dining tables and print high-resolution QR codes",
+    title: "Tables Management",
+    subtitle: "Configure dining tables, seat capacities, and customer QR access tokens",
   },
   "/admin/reports": {
     title: "Analytics & Reports",
