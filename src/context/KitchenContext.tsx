@@ -128,28 +128,30 @@ const DEFAULT_KITCHEN_ORDERS: KitchenOrder[] = [
 const KitchenContext = createContext<KitchenContextType | undefined>(undefined);
 
 export const KitchenProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
-    if (typeof window === "undefined") return false;
-    return localStorage.getItem("dinego_kitchen_auth") === "true";
-  });
-
-  const [kitchenOrders, setKitchenOrders] = useState<KitchenOrder[]>(() => {
-    if (typeof window === "undefined") return DEFAULT_KITCHEN_ORDERS;
-    try {
-      const saved = localStorage.getItem("dinego_kitchen_orders");
-      return saved ? JSON.parse(saved) : DEFAULT_KITCHEN_ORDERS;
-    } catch {
-      return DEFAULT_KITCHEN_ORDERS;
-    }
-  });
-
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
+  const [kitchenOrders, setKitchenOrders] = useState<KitchenOrder[]>(DEFAULT_KITCHEN_ORDERS);
   const [activeOrder, setActiveOrder] = useState<KitchenOrder | null>(null);
+  const [isLoaded, setIsLoaded] = useState<boolean>(false);
 
+  // Load from localStorage after initial client mount to prevent SSR hydration mismatches
   useEffect(() => {
+    try {
+      const savedAuth = localStorage.getItem("dinego_kitchen_auth");
+      if (savedAuth === "true") setIsAuthenticated(true);
+
+      const savedOrders = localStorage.getItem("dinego_kitchen_orders");
+      if (savedOrders) setKitchenOrders(JSON.parse(savedOrders));
+    } catch {}
+    setIsLoaded(true);
+  }, []);
+
+  // Sync changes to localStorage only after initial load
+  useEffect(() => {
+    if (!isLoaded) return;
     try {
       localStorage.setItem("dinego_kitchen_orders", JSON.stringify(kitchenOrders));
     } catch {}
-  }, [kitchenOrders]);
+  }, [kitchenOrders, isLoaded]);
 
   const login = (email: string) => {
     if (email.trim().length > 0) {

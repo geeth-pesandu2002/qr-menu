@@ -32,58 +32,44 @@ interface CartContextType {
 const CartContext = createContext<CartContextType | undefined>(undefined);
 
 export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [tableId, setTableId] = useState<string>(() => {
-    if (typeof window === "undefined") return "05";
-    try {
-      const saved = localStorage.getItem("dinego_table");
-      return saved ? JSON.parse(saved).id || "05" : "05";
-    } catch {
-      return "05";
-    }
-  });
+  const [tableId, setTableId] = useState<string>("05");
+  const [tableLabel, setTableLabel] = useState<string>("Table 05");
+  const [cart, setCart] = useState<CartItem[]>([]);
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [isLoaded, setIsLoaded] = useState<boolean>(false);
 
-  const [tableLabel, setTableLabel] = useState<string>(() => {
-    if (typeof window === "undefined") return "Table 05";
-    try {
-      const saved = localStorage.getItem("dinego_table");
-      return saved ? JSON.parse(saved).label || "Table 05" : "Table 05";
-    } catch {
-      return "Table 05";
-    }
-  });
-
-  const [cart, setCart] = useState<CartItem[]>(() => {
-    if (typeof window === "undefined") return [];
-    try {
-      const savedCart = localStorage.getItem("dinego_cart");
-      return savedCart ? JSON.parse(savedCart) : [];
-    } catch {
-      return [];
-    }
-  });
-
-  const [orders, setOrders] = useState<Order[]>(() => {
-    if (typeof window === "undefined") return [];
-    try {
-      const savedOrders = localStorage.getItem("dinego_orders");
-      return savedOrders ? JSON.parse(savedOrders) : [];
-    } catch {
-      return [];
-    }
-  });
-
-  // Save changes to localStorage
+  // Load from localStorage after initial client mount to prevent SSR hydration mismatches
   useEffect(() => {
+    try {
+      const savedTable = localStorage.getItem("dinego_table");
+      if (savedTable) {
+        const parsed = JSON.parse(savedTable);
+        if (parsed.id) setTableId(parsed.id);
+        if (parsed.label) setTableLabel(parsed.label);
+      }
+      const savedCart = localStorage.getItem("dinego_cart");
+      if (savedCart) setCart(JSON.parse(savedCart));
+
+      const savedOrders = localStorage.getItem("dinego_orders");
+      if (savedOrders) setOrders(JSON.parse(savedOrders));
+    } catch {}
+    setIsLoaded(true);
+  }, []);
+
+  // Save changes to localStorage only after initial load
+  useEffect(() => {
+    if (!isLoaded) return;
     try {
       localStorage.setItem("dinego_cart", JSON.stringify(cart));
     } catch {}
-  }, [cart]);
+  }, [cart, isLoaded]);
 
   useEffect(() => {
+    if (!isLoaded) return;
     try {
       localStorage.setItem("dinego_orders", JSON.stringify(orders));
     } catch {}
-  }, [orders]);
+  }, [orders, isLoaded]);
 
   const setTable = (id: string, label?: string) => {
     const tableLbl = label || `Table ${id.padStart(2, "0")}`;

@@ -28,7 +28,7 @@ export default function KitchenDashboardPage() {
               🕒
             </div>
             <div>
-              <p className="text-2xl font-black text-[#121212]">{newOrders.length}</p>
+              <p className="text-2xl font-black text-[#121212]" suppressHydrationWarning>{newOrders.length}</p>
               <p className="text-xs text-zinc-500 font-semibold">New Orders</p>
             </div>
           </div>
@@ -40,7 +40,7 @@ export default function KitchenDashboardPage() {
               🍳
             </div>
             <div>
-              <p className="text-2xl font-black text-[#121212]">{preparingOrders.length}</p>
+              <p className="text-2xl font-black text-[#121212]" suppressHydrationWarning>{preparingOrders.length}</p>
               <p className="text-xs text-zinc-500 font-semibold">Preparing</p>
             </div>
           </div>
@@ -52,7 +52,7 @@ export default function KitchenDashboardPage() {
               ⚡
             </div>
             <div>
-              <p className="text-2xl font-black text-[#121212]">{readyOrders.length}</p>
+              <p className="text-2xl font-black text-[#121212]" suppressHydrationWarning>{readyOrders.length}</p>
               <p className="text-xs text-zinc-500 font-semibold">Ready to Serve</p>
             </div>
           </div>
@@ -64,7 +64,7 @@ export default function KitchenDashboardPage() {
               📊
             </div>
             <div>
-              <p className="text-2xl font-black text-[#121212]">
+              <p className="text-2xl font-black text-[#121212]" suppressHydrationWarning>
                 {kitchenOrders.length + completedOrders.length}
               </p>
               <p className="text-xs text-zinc-500 font-semibold">Total Today</p>
@@ -80,7 +80,7 @@ export default function KitchenDashboardPage() {
           <div className="flex items-center justify-between">
             <h2 className="text-sm font-extrabold text-red-600 uppercase tracking-wider flex items-center gap-2">
               <span>New Orders</span>
-              <span className="bg-red-100 text-red-700 text-xs px-2.5 py-0.5 rounded-full">
+              <span className="bg-red-100 text-red-700 text-xs px-2.5 py-0.5 rounded-full" suppressHydrationWarning>
                 {newOrders.length}
               </span>
             </h2>
@@ -149,7 +149,7 @@ export default function KitchenDashboardPage() {
           <div className="flex items-center justify-between">
             <h2 className="text-sm font-extrabold text-[#F4B400] uppercase tracking-wider flex items-center gap-2">
               <span>Preparing</span>
-              <span className="bg-amber-100 text-amber-800 text-xs px-2.5 py-0.5 rounded-full">
+              <span className="bg-amber-100 text-amber-800 text-xs px-2.5 py-0.5 rounded-full" suppressHydrationWarning>
                 {preparingOrders.length}
               </span>
             </h2>
@@ -218,7 +218,7 @@ export default function KitchenDashboardPage() {
           <div className="flex items-center justify-between">
             <h2 className="text-sm font-extrabold text-[#198754] uppercase tracking-wider flex items-center gap-2">
               <span>Ready to Serve</span>
-              <span className="bg-emerald-100 text-emerald-800 text-xs px-2.5 py-0.5 rounded-full">
+              <span className="bg-emerald-100 text-emerald-800 text-xs px-2.5 py-0.5 rounded-full" suppressHydrationWarning>
                 {readyOrders.length}
               </span>
             </h2>
