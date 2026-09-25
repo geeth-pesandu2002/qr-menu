@@ -14,8 +14,8 @@ const TITLE_MAP: Record<string, { title: string; subtitle: string }> = {
     subtitle: "Real-time revenue, orders & restaurant performance",
   },
   "/admin/orders": {
-    title: "Order Management",
-    subtitle: "Monitor live incoming and historical customer orders",
+    title: "Live Orders Management",
+    subtitle: "Monitor real-time kitchen operations, track customer tickets, and update order statuses",
   },
   "/admin/menu": {
     title: "Menu Catalog",
