@@ -86,7 +86,7 @@ export default function KitchenOrderHistoryPage() {
                             Served
                           </span>
                         </td>
-                        <td className="py-4 px-6 text-zinc-500">
+                        <td className="py-4 px-6 text-zinc-500" suppressHydrationWarning>
                           {new Date(order.createdAt).toLocaleTimeString([], {
                             hour: "2-digit",
                             minute: "2-digit",

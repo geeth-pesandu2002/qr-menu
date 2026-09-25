@@ -124,7 +124,7 @@ function KitchenLayoutContent({ children }: { children: React.ReactNode }) {
               <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
               <span>Live System</span>
             </div>
-            <span className="text-zinc-500 bg-zinc-100 px-3.5 py-1.5 rounded-full font-mono">
+            <span className="text-zinc-500 bg-zinc-100 px-3.5 py-1.5 rounded-full font-mono" suppressHydrationWarning>
               {currentTime || "Mon, 12 May 2025 | 12:24 PM"}
             </span>
           </div>

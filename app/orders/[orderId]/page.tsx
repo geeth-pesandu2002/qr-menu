@@ -41,7 +41,7 @@ export default function OrderStatusPage({
             <div className="flex items-center gap-2">
               <h1 className="text-xl font-black text-[#121212]">Order #{orderId}</h1>
             </div>
-            <p className="text-xs text-zinc-500 mt-0.5">
+            <p className="text-xs text-zinc-500 mt-0.5" suppressHydrationWarning>
               Placed at {order ? new Date(order.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "1:25 PM"}
             </p>
           </div>

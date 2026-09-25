@@ -102,7 +102,7 @@ export default function KitchenOrderDetailPage({
         </Link>
         <div className="text-right">
           <span className="text-xs text-zinc-400 font-semibold block">Order Time</span>
-          <span className="text-xs font-bold text-zinc-700">
+          <span className="text-xs font-bold text-zinc-700" suppressHydrationWarning>
             12:22 PM ({order.elapsedMinutes || 2} mins ago)
           </span>
         </div>
