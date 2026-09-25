@@ -18,8 +18,12 @@ const TITLE_MAP: Record<string, { title: string; subtitle: string }> = {
     subtitle: "Monitor real-time kitchen operations, track customer tickets, and update order statuses",
   },
   "/admin/menu": {
-    title: "Menu Catalog",
-    subtitle: "Manage dishes, pricing, variants, and stock status",
+    title: "Menu Items Management",
+    subtitle: "Manage dishes, pricing, variants, and customer availability",
+  },
+  "/admin/menu/new": {
+    title: "Add New Menu Item",
+    subtitle: "Configure a new dish for your digital restaurant catalog",
   },
   "/admin/categories": {
     title: "Categories",
@@ -64,10 +68,24 @@ export default function AdminHeader({ onMobileMenuToggle }: AdminHeaderProps) {
     return () => clearInterval(interval);
   }, []);
 
-  const headerInfo = TITLE_MAP[pathname] || {
-    title: "Restaurant Owner Portal",
-    subtitle: "DineGo Operations Management",
+  // Resolve title mapping including dynamic nested edit routes
+  const getHeaderInfo = () => {
+    if (TITLE_MAP[pathname]) {
+      return TITLE_MAP[pathname];
+    }
+    if (pathname.startsWith("/admin/menu/") && pathname.endsWith("/edit")) {
+      return {
+        title: "Edit Menu Item",
+        subtitle: "Modify dish title, description, base pricing, portions, and availability status",
+      };
+    }
+    return {
+      title: "Restaurant Owner Portal",
+      subtitle: "DineGo Operations Management",
+    };
   };
+
+  const headerInfo = getHeaderInfo();
 
   return (
     <header className="bg-white border-b border-zinc-200 px-4 sm:px-6 py-3.5 sticky top-0 z-30 flex items-center justify-between shadow-xs">
