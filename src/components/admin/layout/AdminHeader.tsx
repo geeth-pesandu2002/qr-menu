@@ -34,8 +34,8 @@ const TITLE_MAP: Record<string, { title: string; subtitle: string }> = {
     subtitle: "Configure dining tables, seat capacities, and customer QR access tokens",
   },
   "/admin/reports": {
-    title: "Analytics & Reports",
-    subtitle: "In-depth sales metrics, item trends, and revenue exports",
+    title: "Reports & Analytics",
+    subtitle: "Comprehensive revenue breakdown, order volume analytics, and top performing dishes",
   },
   "/admin/settings": {
     title: "Restaurant Settings",
