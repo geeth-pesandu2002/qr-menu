@@ -26,8 +26,8 @@ const TITLE_MAP: Record<string, { title: string; subtitle: string }> = {
     subtitle: "Configure a new dish for your digital restaurant catalog",
   },
   "/admin/categories": {
-    title: "Categories",
-    subtitle: "Organize dishes into customer menu sections",
+    title: "Categories Management",
+    subtitle: "Organize dishes into customer menu sections and control section visibility",
   },
   "/admin/tables": {
     title: "Table & QR Management",
