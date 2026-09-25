@@ -34,8 +34,8 @@ const DEFAULT_KITCHEN_ORDERS: KitchenOrder[] = [
     subtotal: 2000,
     serviceCharge: 100,
     total: 2000,
-    createdAt: Date.now() - 1000 * 60 * 2, // 2 mins ago
-    updatedAt: Date.now(),
+    createdAt: 1720780000000,
+    updatedAt: 1720780000000,
     elapsedMinutes: 2,
   },
   {
@@ -51,8 +51,8 @@ const DEFAULT_KITCHEN_ORDERS: KitchenOrder[] = [
     subtotal: 2700,
     serviceCharge: 135,
     total: 2700,
-    createdAt: Date.now() - 1000 * 60 * 4, // 4 mins ago
-    updatedAt: Date.now(),
+    createdAt: 1720779800000,
+    updatedAt: 1720779800000,
     elapsedMinutes: 4,
   },
   {
@@ -68,8 +68,8 @@ const DEFAULT_KITCHEN_ORDERS: KitchenOrder[] = [
     subtotal: 1800,
     serviceCharge: 90,
     total: 1800,
-    createdAt: Date.now() - 1000 * 60 * 6, // 6 mins ago
-    updatedAt: Date.now(),
+    createdAt: 1720779600000,
+    updatedAt: 1720779600000,
     elapsedMinutes: 6,
   },
   {
@@ -85,8 +85,8 @@ const DEFAULT_KITCHEN_ORDERS: KitchenOrder[] = [
     subtotal: 1800,
     serviceCharge: 90,
     total: 1800,
-    createdAt: Date.now() - 1000 * 60 * 10, // 10 mins ago
-    updatedAt: Date.now(),
+    createdAt: 1720779200000,
+    updatedAt: 1720779200000,
     elapsedMinutes: 10,
   },
   {
@@ -102,8 +102,8 @@ const DEFAULT_KITCHEN_ORDERS: KitchenOrder[] = [
     subtotal: 1750,
     serviceCharge: 87,
     total: 1750,
-    createdAt: Date.now() - 1000 * 60 * 12, // 12 mins ago
-    updatedAt: Date.now(),
+    createdAt: 1720779000000,
+    updatedAt: 1720779000000,
     elapsedMinutes: 12,
   },
   {
@@ -119,8 +119,8 @@ const DEFAULT_KITCHEN_ORDERS: KitchenOrder[] = [
     subtotal: 2050,
     serviceCharge: 100,
     total: 2050,
-    createdAt: Date.now() - 1000 * 60 * 15, // 15 mins ago
-    updatedAt: Date.now(),
+    createdAt: 1720778700000,
+    updatedAt: 1720778700000,
     elapsedMinutes: 15,
   },
 ];
