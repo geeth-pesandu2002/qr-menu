@@ -41,10 +41,6 @@ export async function PUT(
   try {
     const { id } = await params;
     const authHeader = request.headers.get("Authorization");
-    if (!authHeader) {
-      throw new AuthError("Authorization required", 401);
-    }
-
     const token = await verifyToken(authHeader);
     requireRole(token.role, "owner");
 
@@ -67,10 +63,6 @@ export async function DELETE(
   try {
     const { id } = await params;
     const authHeader = request.headers.get("Authorization");
-    if (!authHeader) {
-      throw new AuthError("Authorization required", 401);
-    }
-
     const token = await verifyToken(authHeader);
     requireRole(token.role, "owner");
 

@@ -10,31 +10,18 @@ import { getDashboardStats } from "@/lib/db-service";
 export async function GET(request: NextRequest) {
   try {
     const authHeader = request.headers.get("Authorization");
-    if (!authHeader) {
-      throw new AuthError("Authorization required", 401);
-    }
-
     const token = await verifyToken(authHeader);
     requireAnyRole(token.role, ["kitchen", "owner"]);
 
-    const startDate = request.nextUrl.searchParams.get("startDate");
-    const endDate = request.nextUrl.searchParams.get("endDate");
+    const startDateParam = request.nextUrl.searchParams.get("startDate");
+    const endDateParam = request.nextUrl.searchParams.get("endDate");
 
-    if (!startDate || !endDate) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "startDate and endDate required (timestamps)",
-          timestamp: Date.now(),
-        },
-        { status: 400 }
-      );
-    }
+    const now = new Date();
+    const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+    const startDate = startDateParam ? parseInt(startDateParam) : startOfDay;
+    const endDate = endDateParam ? parseInt(endDateParam) : Date.now() + 86400000;
 
-    const stats = await getDashboardStats(
-      parseInt(startDate),
-      parseInt(endDate)
-    );
+    const stats = await getDashboardStats(startDate, endDate);
 
     return NextResponse.json(
       { success: true, data: stats, timestamp: Date.now() },

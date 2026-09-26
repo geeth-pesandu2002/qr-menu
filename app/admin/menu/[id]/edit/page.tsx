@@ -1,11 +1,11 @@
 "use client";
 
-import React, { use } from "react";
+import React, { use, useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import MenuItemForm from "@/src/components/admin/menu/MenuItemForm";
 import { mockCategories, mockMenuItems } from "@/src/mock/menuData";
-import { MenuItem } from "@/src/lib/types";
+import { MenuItem, Category } from "@/src/lib/types";
 
 // Fallback demo item if an unknown ID or 'demo-item' is accessed
 const DEFAULT_FALLBACK_ITEM: MenuItem = {
@@ -32,20 +32,65 @@ export default function EditMenuItemPage({
   const resolvedParams = use(params);
   const itemId = resolvedParams.id;
 
-  // Find existing mock item by id or fallback to demo
-  const item: MenuItem =
-    mockMenuItems.find((i) => i.id === itemId) || {
-      ...DEFAULT_FALLBACK_ITEM,
-      id: itemId,
-      name:
-        itemId === "demo-item"
-          ? DEFAULT_FALLBACK_ITEM.name
-          : `Item (${itemId})`,
-    };
+  const [categories, setCategories] = useState<Category[]>(mockCategories);
+  const [item, setItem] = useState<MenuItem>(() => {
+    return (
+      mockMenuItems.find((i) => i.id === itemId) || {
+        ...DEFAULT_FALLBACK_ITEM,
+        id: itemId,
+        name: itemId === "demo-item" ? DEFAULT_FALLBACK_ITEM.name : `Item (${itemId})`,
+      }
+    );
+  });
+  const [isUpdating, setIsUpdating] = useState(false);
 
-  const handleUpdate = (itemData: Omit<MenuItem, "id" | "createdAt" | "updatedAt">) => {
-    console.log("Updated menu item (mock):", { id: itemId, ...itemData });
-    router.push("/admin/menu");
+  useEffect(() => {
+    let isMounted = true;
+    async function loadItemAndCategories() {
+      try {
+        const [itemRes, catRes] = await Promise.all([
+          fetch(`/api/menu-items/${itemId}`),
+          fetch("/api/categories"),
+        ]);
+        if (itemRes.ok) {
+          const itemJson = await itemRes.json();
+          if (itemJson.success && itemJson.data && isMounted) {
+            setItem(itemJson.data);
+          }
+        }
+        if (catRes.ok) {
+          const catJson = await catRes.json();
+          if (catJson.success && Array.isArray(catJson.data) && isMounted) {
+            setCategories(catJson.data);
+          }
+        }
+      } catch (err) {
+        console.warn("Could not load item details for edit:", err);
+      }
+    }
+    loadItemAndCategories();
+    return () => {
+      isMounted = false;
+    };
+  }, [itemId]);
+
+  const handleUpdate = async (itemData: Omit<MenuItem, "id" | "createdAt" | "updatedAt">) => {
+    setIsUpdating(true);
+    try {
+      await fetch(`/api/menu-items/${itemId}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: "Bearer owner-token",
+        },
+        body: JSON.stringify(itemData),
+      });
+    } catch (err) {
+      console.warn("Failed to persist item update:", err);
+    } finally {
+      setIsUpdating(false);
+      router.push("/admin/menu");
+    }
   };
 
   const handleCancel = () => {
@@ -86,8 +131,9 @@ export default function EditMenuItemPage({
 
       {/* Reusable Form populated with existing item data */}
       <MenuItemForm
+        key={item.id}
         initialData={item}
-        categories={mockCategories}
+        categories={categories}
         onSubmit={handleUpdate}
         onCancel={handleCancel}
         isEditing={true}

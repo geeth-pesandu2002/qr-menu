@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import GeneralSettings, {
   GeneralSettingsState,
 } from "@/src/components/admin/settings/GeneralSettings";
@@ -50,29 +50,101 @@ export default function SettingsPage() {
   const [general, setGeneral] = useState<GeneralSettingsState>(INITIAL_GENERAL);
   const [info, setInfo] = useState<RestaurantInfoState>(INITIAL_RESTAURANT_INFO);
   const [account, setAccount] = useState<AccountSettingsState>(INITIAL_ACCOUNT);
+  const [isSaving, setIsSaving] = useState(false);
 
   // Status message
   const [statusMessage, setStatusMessage] = useState<{
     text: string;
-    type: "success" | "info";
+    type: "success" | "info" | "error";
   } | null>(null);
 
-  const handleSave = () => {
-    setStatusMessage({
-      text: "Settings saved successfully (Local Mock State)",
-      type: "success",
-    });
-    setTimeout(() => {
-      setStatusMessage(null);
-    }, 4000);
+  // Load live settings from backend
+  const loadSettings = async () => {
+    try {
+      const res = await fetch("/api/settings");
+      if (res.ok) {
+        const json = await res.json();
+        if (json.success && json.data) {
+          const d = json.data;
+          setGeneral((prev) => ({
+            ...prev,
+            restaurantName: d.restaurantName || prev.restaurantName,
+            contactEmail: d.contactEmail || prev.contactEmail,
+            phoneNumber: d.phoneNumber || prev.phoneNumber,
+            currency: d.currency || prev.currency,
+            serviceCharge: d.serviceCharge ?? prev.serviceCharge,
+            qrOrderingEnabled: d.qrOrderingEnabled ?? prev.qrOrderingEnabled,
+            openingHours: d.openingHours || prev.openingHours,
+          }));
+          setInfo((prev) => ({
+            ...prev,
+            restaurantName: d.restaurantName || prev.restaurantName,
+            branchName: d.branchName || prev.branchName,
+            contactEmail: d.contactEmail || prev.contactEmail,
+            phoneNumber: d.phoneNumber || prev.phoneNumber,
+            address: d.address || prev.address,
+            city: d.city || prev.city,
+            postalCode: d.postalCode || prev.postalCode,
+            country: d.country || prev.country,
+            coverImageUrl: d.coverImageUrl || prev.coverImageUrl,
+            logoUrl: d.logoUrl || prev.logoUrl,
+          }));
+        }
+      }
+    } catch (err) {
+      console.warn("Could not load live settings:", err);
+    }
+  };
+
+  useEffect(() => {
+    loadSettings();
+  }, []);
+
+  const handleSave = async () => {
+    setIsSaving(true);
+    try {
+      const payload = {
+        ...general,
+        ...info,
+      };
+      const res = await fetch("/api/settings", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: "Bearer owner-token",
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (res.ok) {
+        setStatusMessage({
+          text: "Restaurant settings successfully saved to live database!",
+          type: "success",
+        });
+      } else {
+        setStatusMessage({
+          text: "Saved locally, server responded with error.",
+          type: "info",
+        });
+      }
+    } catch (err) {
+      console.warn("Failed to persist settings:", err);
+      setStatusMessage({
+        text: "Saved locally (offline mode active)",
+        type: "info",
+      });
+    } finally {
+      setIsSaving(false);
+      setTimeout(() => {
+        setStatusMessage(null);
+      }, 4000);
+    }
   };
 
   const handleDiscard = () => {
-    setGeneral(INITIAL_GENERAL);
-    setInfo(INITIAL_RESTAURANT_INFO);
-    setAccount(INITIAL_ACCOUNT);
+    loadSettings();
     setStatusMessage({
-      text: "Changes discarded. Reset to initial settings.",
+      text: "Changes discarded. Reset to saved settings.",
       type: "info",
     });
     setTimeout(() => {

@@ -17,7 +17,17 @@ export default function AdminLoginPage() {
     e.preventDefault();
     setIsLoading(true);
 
-    // Frontend-only simulation for milestone 1
+    try {
+      localStorage.setItem("dinego_admin_token", "owner-token");
+      localStorage.setItem(
+        "dinego_admin_user",
+        JSON.stringify({ email, role: "owner", loginTime: Date.now() })
+      );
+      document.cookie = "dinego_owner_session=active; path=/; max-age=86400";
+    } catch (err) {
+      console.warn("Storage error:", err);
+    }
+
     setTimeout(() => {
       router.push("/admin/dashboard");
     }, 400);

@@ -17,11 +17,48 @@ import {
 import { mockCategories, mockMenuItems, mockTables, mockInitialOrders } from "@/src/mock/menuData";
 
 // ===== IN-MEMORY DUAL-MODE DATA STORE =====
+export interface RestaurantSettings {
+  restaurantName: string;
+  contactEmail: string;
+  phoneNumber: string;
+  currency: string;
+  serviceCharge: number;
+  taxRate: number;
+  qrOrderingEnabled: boolean;
+  openingHours: string;
+  branchName?: string;
+  address?: string;
+  city?: string;
+  postalCode?: string;
+  country?: string;
+  coverImageUrl?: string;
+  logoUrl?: string;
+}
+
+export const DEFAULT_SETTINGS: RestaurantSettings = {
+  restaurantName: "The Cozy Cafe",
+  contactEmail: "contact@cozycafe.com",
+  phoneNumber: "+94 11 234 5678",
+  currency: "LKR",
+  serviceCharge: 10,
+  taxRate: 10,
+  qrOrderingEnabled: true,
+  openingHours: "10:00 AM - 11:00 PM",
+  branchName: "Main Branch - Colombo 03",
+  address: "No. 42, Galle Road",
+  city: "Colombo 03",
+  postalCode: "00300",
+  country: "Sri Lanka",
+  coverImageUrl: "https://images.unsplash.com/photo-1554118811-1e0d58224f24?w=1200&auto=format&fit=crop&q=80",
+  logoUrl: "/icons/icon-192x192.png",
+};
+
 interface MemoryStore {
   categories: Category[];
   menuItems: MenuItem[];
   tables: Table[];
   orders: Order[];
+  settings?: RestaurantSettings;
 }
 
 function getMemoryStore(): MemoryStore {
@@ -32,6 +69,7 @@ function getMemoryStore(): MemoryStore {
       menuItems: [...mockMenuItems],
       tables: [...mockTables],
       orders: [...(mockInitialOrders as Order[])],
+      settings: { ...DEFAULT_SETTINGS },
     };
   }
   return g.__dinego_store;
@@ -473,12 +511,15 @@ export async function getTableById(tableId: string): Promise<Table | null> {
 
   const store = getMemoryStore();
   const normalized = tableId.trim().toLowerCase();
+  const numPart = normalized.replace(/\D/g, "");
   const found = store.tables.find(
     (t) =>
       t.id.toLowerCase() === normalized ||
       t.id.padStart(2, "0") === normalized.padStart(2, "0") ||
       t.label.toLowerCase() === normalized ||
-      t.qrToken?.toLowerCase() === normalized
+      t.qrToken?.toLowerCase() === normalized ||
+      (numPart && t.id.replace(/\D/g, "") === numPart) ||
+      (numPart && t.id.padStart(2, "0") === numPart.padStart(2, "0"))
   );
 
   return found ? { ...found } : null;
@@ -632,4 +673,42 @@ export function generateQRToken(): string {
     token += chars.charAt(Math.floor(Math.random() * chars.length));
   }
   return token;
+}
+
+// ===== RESTAURANT SETTINGS =====
+
+export async function getRestaurantSettings(): Promise<RestaurantSettings> {
+  const db = getAdminDb();
+  if (db) {
+    try {
+      const doc = await db.collection("settings").doc("restaurant").get();
+      if (doc.exists) {
+        return { ...DEFAULT_SETTINGS, ...(doc.data() as RestaurantSettings) };
+      }
+    } catch (e) {
+      console.warn("Firestore settings fetch error:", e);
+    }
+  }
+  const store = getMemoryStore();
+  if (!store.settings) {
+    store.settings = { ...DEFAULT_SETTINGS };
+  }
+  return { ...store.settings };
+}
+
+export async function updateRestaurantSettings(
+  updates: Partial<RestaurantSettings>
+): Promise<RestaurantSettings> {
+  const db = getAdminDb();
+  if (db) {
+    try {
+      await db.collection("settings").doc("restaurant").set(updates, { merge: true });
+      return await getRestaurantSettings();
+    } catch (e) {
+      console.warn("Firestore settings update error:", e);
+    }
+  }
+  const store = getMemoryStore();
+  store.settings = { ...(store.settings || DEFAULT_SETTINGS), ...updates };
+  return { ...store.settings };
 }

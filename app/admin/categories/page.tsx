@@ -120,15 +120,35 @@ export default function AdminCategoriesPage() {
   const totalItemsAssigned = categories.reduce((sum, c) => sum + c.itemsCount, 0);
   const mostOrderedCategory = "Burgers • 42% of orders";
 
-  // Toggle active status directly
-  const handleToggleStatus = (id: string) => {
+  // Toggle active status directly with backend sync
+  const handleToggleStatus = async (id: string) => {
+    let newStatus = true;
     setCategories((prev) =>
-      prev.map((c) => (c.id === id ? { ...c, isActive: !c.isActive, updatedAt: Date.now() } : c))
+      prev.map((c) => {
+        if (c.id === id) {
+          newStatus = !c.isActive;
+          return { ...c, isActive: newStatus, updatedAt: Date.now() };
+        }
+        return c;
+      })
     );
+
+    try {
+      await fetch(`/api/categories/${id}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: "Bearer owner-token",
+        },
+        body: JSON.stringify({ isActive: newStatus }),
+      });
+    } catch (err) {
+      console.warn("Failed to update category status on server:", err);
+    }
   };
 
-  // Save (Create or Edit)
-  const handleSaveCategory = (data: Partial<Category>) => {
+  // Save (Create or Edit) with backend sync
+  const handleSaveCategory = async (data: Partial<Category>) => {
     if (editingCategory) {
       setCategories((prev) =>
         prev.map((c) =>
@@ -137,6 +157,19 @@ export default function AdminCategoriesPage() {
             : c
         )
       );
+
+      try {
+        await fetch(`/api/categories/${editingCategory.id}`, {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: "Bearer owner-token",
+          },
+          body: JSON.stringify(data),
+        });
+      } catch (err) {
+        console.warn("Failed to update category on server:", err);
+      }
     } else {
       const newCategory: AdminCategoryItem = {
         id: `cat_${Date.now()}`,
@@ -150,15 +183,40 @@ export default function AdminCategoriesPage() {
         updatedAt: Date.now(),
       };
       setCategories((prev) => [...prev, newCategory]);
+
+      try {
+        await fetch("/api/categories", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: "Bearer owner-token",
+          },
+          body: JSON.stringify(newCategory),
+        });
+      } catch (err) {
+        console.warn("Failed to create category on server:", err);
+      }
     }
     setEditingCategory(null);
   };
 
-  // Delete
-  const confirmDelete = () => {
+  // Delete with backend sync
+  const confirmDelete = async () => {
     if (!categoryToDelete) return;
-    setCategories((prev) => prev.filter((c) => c.id !== categoryToDelete.id));
+    const catId = categoryToDelete.id;
+    setCategories((prev) => prev.filter((c) => c.id !== catId));
     setCategoryToDelete(null);
+
+    try {
+      await fetch(`/api/categories/${catId}`, {
+        method: "DELETE",
+        headers: {
+          Authorization: "Bearer owner-token",
+        },
+      });
+    } catch (err) {
+      console.warn("Failed to delete category on server:", err);
+    }
   };
 
   // Filtered categories

@@ -1,19 +1,51 @@
 "use client";
 
-import React from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import MenuItemForm from "@/src/components/admin/menu/MenuItemForm";
 import { mockCategories } from "@/src/mock/menuData";
-import { MenuItem } from "@/src/lib/types";
+import { MenuItem, Category } from "@/src/lib/types";
 
 export default function AddMenuItemPage() {
   const router = useRouter();
+  const [categories, setCategories] = useState<Category[]>(mockCategories);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleSave = (itemData: Omit<MenuItem, "id" | "createdAt" | "updatedAt">) => {
-    // In mock milestone, log & navigate back to menu list
-    console.log("Created menu item (mock):", itemData);
-    router.push("/admin/menu");
+  useEffect(() => {
+    async function loadCategories() {
+      try {
+        const res = await fetch("/api/categories");
+        if (res.ok) {
+          const json = await res.json();
+          if (json.success && Array.isArray(json.data) && json.data.length > 0) {
+            setCategories(json.data);
+          }
+        }
+      } catch (err) {
+        console.warn("Could not load categories for new menu item:", err);
+      }
+    }
+    loadCategories();
+  }, []);
+
+  const handleSave = async (itemData: Omit<MenuItem, "id" | "createdAt" | "updatedAt">) => {
+    setIsSubmitting(true);
+    try {
+      await fetch("/api/menu-items", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: "Bearer owner-token",
+        },
+        body: JSON.stringify(itemData),
+      });
+    } catch (err) {
+      console.warn("Failed to create menu item on server:", err);
+    } finally {
+      setIsSubmitting(false);
+      router.push("/admin/menu");
+    }
   };
 
   const handleCancel = () => {
@@ -54,7 +86,7 @@ export default function AddMenuItemPage() {
 
       {/* Reusable Form */}
       <MenuItemForm
-        categories={mockCategories}
+        categories={categories}
         onSubmit={handleSave}
         onCancel={handleCancel}
         isEditing={false}

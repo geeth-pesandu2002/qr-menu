@@ -129,19 +129,35 @@ export default function AdminTablesPage() {
   const inactiveTables = tables.filter((t) => !t.isActive).length;
   const qrReadyCount = tables.filter((t) => Boolean(t.qrToken || t.qrUrl)).length;
 
-  // Status toggle handler
-  const handleToggleStatus = (tableId: string) => {
+  // Status toggle handler with backend sync
+  const handleToggleStatus = async (tableId: string) => {
+    let newStatus = true;
     setTables((prev) =>
-      prev.map((t) =>
-        t.id === tableId
-          ? { ...t, isActive: !t.isActive, updatedAt: Date.now() }
-          : t
-      )
+      prev.map((t) => {
+        if (t.id === tableId) {
+          newStatus = !t.isActive;
+          return { ...t, isActive: newStatus, updatedAt: Date.now() };
+        }
+        return t;
+      })
     );
+
+    try {
+      await fetch(`/api/tables/${tableId}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: "Bearer owner-token",
+        },
+        body: JSON.stringify({ isActive: newStatus }),
+      });
+    } catch (err) {
+      console.warn("Failed to update table status on server:", err);
+    }
   };
 
-  // Add / Edit Table Save
-  const handleSaveTable = (data: Partial<Table>) => {
+  // Add / Edit Table Save with backend sync
+  const handleSaveTable = async (data: Partial<Table>) => {
     if (editingTable) {
       setTables((prev) =>
         prev.map((t) =>
@@ -150,6 +166,19 @@ export default function AdminTablesPage() {
             : t
         )
       );
+
+      try {
+        await fetch(`/api/tables/${editingTable.id}`, {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: "Bearer owner-token",
+          },
+          body: JSON.stringify(data),
+        });
+      } catch (err) {
+        console.warn("Failed to update table on server:", err);
+      }
     } else {
       const newNum = tables.length + 1;
       const cleanNum = newNum < 10 ? `0${newNum}` : `${newNum}`;
@@ -164,15 +193,40 @@ export default function AdminTablesPage() {
         updatedAt: Date.now(),
       };
       setTables((prev) => [...prev, newTable]);
+
+      try {
+        await fetch("/api/tables", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: "Bearer owner-token",
+          },
+          body: JSON.stringify(newTable),
+        });
+      } catch (err) {
+        console.warn("Failed to create table on server:", err);
+      }
     }
     setEditingTable(null);
   };
 
-  // Delete Table
-  const confirmDelete = () => {
+  // Delete Table with backend sync
+  const confirmDelete = async () => {
     if (!tableToDelete) return;
-    setTables((prev) => prev.filter((t) => t.id !== tableToDelete.id));
+    const tId = tableToDelete.id;
+    setTables((prev) => prev.filter((t) => t.id !== tId));
     setTableToDelete(null);
+
+    try {
+      await fetch(`/api/tables/${tId}`, {
+        method: "DELETE",
+        headers: {
+          Authorization: "Bearer owner-token",
+        },
+      });
+    } catch (err) {
+      console.warn("Failed to delete table on server:", err);
+    }
   };
 
   // Filter tables

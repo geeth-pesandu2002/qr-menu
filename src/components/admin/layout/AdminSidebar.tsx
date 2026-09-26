@@ -57,7 +57,13 @@ export default function AdminSidebar({
   const router = useRouter();
 
   const handleLogout = () => {
-    // In this milestone, client-side redirect to login
+    try {
+      localStorage.removeItem("dinego_admin_token");
+      localStorage.removeItem("dinego_admin_user");
+      document.cookie = "dinego_owner_session=; path=/; max-age=0";
+    } catch (err) {
+      console.warn("Logout error:", err);
+    }
     router.push("/admin/login");
   };
 

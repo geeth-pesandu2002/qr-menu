@@ -11,10 +11,6 @@ import QRCode from "qrcode";
 export async function GET(request: NextRequest) {
   try {
     const authHeader = request.headers.get("Authorization");
-    if (!authHeader) {
-      throw new AuthError("Authorization required", 401);
-    }
-
     const token = await verifyToken(authHeader);
     requireRole(token.role, "owner");
 
