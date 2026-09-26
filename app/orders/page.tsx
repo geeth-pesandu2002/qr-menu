@@ -63,99 +63,156 @@ const DEFAULT_HISTORY_ORDERS = [
 export default function OrderHistoryPage() {
   const { orders, tableId, itemCount } = useCart();
   const [isCartOpen, setIsCartOpen] = useState(false);
+  const [statusFilter, setStatusFilter] = useState<string>("ALL");
 
   // Combine real diner placed orders with sample history orders
-  const displayOrders = orders.length > 0 ? [...orders, ...DEFAULT_HISTORY_ORDERS.filter((h) => !orders.some((o) => o.id === h.id))] : DEFAULT_HISTORY_ORDERS;
+  const displayOrders = orders.length > 0
+    ? [...orders, ...DEFAULT_HISTORY_ORDERS.filter((h) => !orders.some((o) => o.id === h.id))]
+    : DEFAULT_HISTORY_ORDERS;
+
+  const filteredOrders = displayOrders.filter((order) => {
+    if (statusFilter === "ALL") return true;
+    if (statusFilter === "ACTIVE") return order.status === "RECEIVED" || order.status === "PREPARING";
+    if (statusFilter === "SERVED") return order.status === "SERVED" || order.status === "COMPLETED";
+    return true;
+  });
 
   return (
-    <div className="min-h-screen bg-[#FAF7F2] text-[#121212] flex flex-col font-sans select-none pb-24">
-      {/* Top Header - Screen 10 */}
-      <header className="bg-white border-b border-zinc-200/80 px-5 py-3.5 sticky top-0 z-40 shadow-xs">
-        <div className="max-w-md mx-auto flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-xl bg-[#FF6B2C] flex items-center justify-center font-bold text-white text-base shadow-sm shadow-[#FF6B2C]/30">
-            🍴
+    <div className="min-h-screen bg-[#FAF7F2] text-[#121212] flex flex-col font-sans select-none pb-24 md:pb-12">
+      {/* Top Header - Responsive */}
+      <header className="bg-white/95 backdrop-blur-md border-b border-zinc-200/80 px-4 sm:px-8 py-3.5 sticky top-0 z-40 shadow-xs">
+        <div className="max-w-6xl mx-auto flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-[#FF6B2C] flex items-center justify-center font-bold text-white text-base shadow-sm shadow-[#FF6B2C]/30">
+              🍴
+            </div>
+            <div>
+              <h1 className="text-lg sm:text-xl font-black tracking-tight text-[#121212]">
+                My Orders
+              </h1>
+              <p className="text-[11px] text-zinc-400 font-semibold hidden sm:block">
+                View current and past table orders
+              </p>
+            </div>
           </div>
-          <h1 className="text-xl font-black tracking-tight text-[#121212]">
-            My Orders
-          </h1>
+
+          <div className="flex items-center gap-4">
+            <Link
+              href={`/t/${tableId || "05"}`}
+              className="px-4 py-2 rounded-full bg-zinc-100 hover:bg-zinc-200 text-zinc-700 font-bold text-xs transition-colors flex items-center gap-1.5"
+            >
+              <span>←</span>
+              <span>Back to Menu</span>
+            </Link>
+          </div>
         </div>
       </header>
 
       {/* Main Container */}
-      <main className="max-w-md mx-auto w-full px-4 pt-5 space-y-3.5 flex-1">
-        {displayOrders.map((order) => {
-          const isPreparing = order.status === "PREPARING" || order.status === "RECEIVED";
-          const isServed = order.status === "SERVED";
-          const isCompleted = order.status === "COMPLETED";
-
-          const formattedDate = (order as unknown as { dateStr?: string }).dateStr
-            ? (order as unknown as { dateStr?: string }).dateStr
-            : new Date(order.createdAt).toLocaleDateString("en-GB", {
-                day: "2-digit",
-                month: "short",
-                year: "numeric",
-              }) +
-              ", " +
-              new Date(order.createdAt).toLocaleTimeString([], {
-                hour: "2-digit",
-                minute: "2-digit",
-              });
-
-          return (
-            <Link
-              key={order.id}
-              href={`/orders/${order.id}`}
-              className="bg-white p-4 rounded-3xl border border-zinc-200/80 shadow-xs hover:shadow-md transition-all flex flex-col gap-2 group block active:scale-99"
+      <main className="max-w-6xl mx-auto w-full px-4 sm:px-8 pt-6 sm:pt-8 flex-1 space-y-6">
+        {/* Filter Pills */}
+        <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
+          {[
+            { id: "ALL", label: "All Orders" },
+            { id: "ACTIVE", label: "In Kitchen (Active)" },
+            { id: "SERVED", label: "Served & Completed" },
+          ].map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setStatusFilter(tab.id)}
+              className={`px-4 py-2 rounded-full text-xs font-bold transition-all shadow-xs whitespace-nowrap ${
+                statusFilter === tab.id
+                  ? "bg-[#FF6B2C] text-white"
+                  : "bg-white text-zinc-700 hover:bg-zinc-100 border border-zinc-200"
+              }`}
             >
-              {/* Top Row: #1024, Status Badge, > */}
-              <div className="flex items-center justify-between">
-                <span className="font-black text-base text-[#121212] group-hover:text-[#FF6B2C] transition-colors">
-                  #{order.id}
-                </span>
+              {tab.label}
+            </button>
+          ))}
+        </div>
 
-                <div className="flex items-center gap-2">
-                  <span
-                    className={`text-[11px] font-extrabold px-3 py-1 rounded-full ${
-                      isPreparing
-                        ? "bg-amber-100 text-amber-800"
-                        : isServed
-                        ? "bg-emerald-100 text-emerald-800"
-                        : "bg-zinc-100 text-zinc-600"
-                    }`}
-                  >
-                    {isPreparing
-                      ? "Preparing"
-                      : isServed
-                      ? "Served"
-                      : "Completed"}
+        {/* Responsive Grid of Order Cards: 1 col on mobile, 2 on tablet, 3 on desktop */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
+          {filteredOrders.map((order) => {
+            const isPreparing = order.status === "PREPARING" || order.status === "RECEIVED";
+            const isServed = order.status === "SERVED";
+            const isCompleted = order.status === "COMPLETED";
+
+            const formattedDate = (order as unknown as { dateStr?: string }).dateStr
+              ? (order as unknown as { dateStr?: string }).dateStr
+              : new Date(order.createdAt).toLocaleDateString("en-GB", {
+                  day: "2-digit",
+                  month: "short",
+                  year: "numeric",
+                }) +
+                ", " +
+                new Date(order.createdAt).toLocaleTimeString([], {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                });
+
+            return (
+              <Link
+                key={order.id}
+                href={`/orders/${order.id}`}
+                className="bg-white p-5 rounded-3xl border border-zinc-200/80 shadow-xs hover:shadow-lg hover:-translate-y-0.5 transition-all flex flex-col justify-between gap-3 group block active:scale-99"
+              >
+                {/* Top Row: #1024, Status Badge, > */}
+                <div className="flex items-center justify-between">
+                  <span className="font-black text-base sm:text-lg text-[#121212] group-hover:text-[#FF6B2C] transition-colors">
+                    #{order.id}
                   </span>
-                  <span className="text-zinc-400 font-bold group-hover:translate-x-0.5 transition-transform text-sm">
-                    ›
+
+                  <div className="flex items-center gap-2">
+                    <span
+                      className={`text-[11px] font-extrabold px-3 py-1 rounded-full ${
+                        isPreparing
+                          ? "bg-amber-100 text-amber-800"
+                          : isServed
+                          ? "bg-emerald-100 text-emerald-800"
+                          : "bg-zinc-100 text-zinc-600"
+                      }`}
+                    >
+                      {isPreparing
+                        ? "Preparing"
+                        : isServed
+                        ? "Served"
+                        : "Completed"}
+                    </span>
+                    <span className="text-zinc-400 font-bold group-hover:translate-x-1 transition-transform text-sm">
+                      ›
+                    </span>
+                  </div>
+                </div>
+
+                {/* Table & Items Overview */}
+                <div className="space-y-1">
+                  <div className="text-xs font-bold text-zinc-700 flex items-center gap-1.5">
+                    <span>🪑</span>
+                    <span>{order.tableLabel}</span>
+                  </div>
+                  <p className="text-xs text-zinc-400 line-clamp-1">
+                    {order.lines.map((l) => `${l.name} x${l.qty}`).join(", ")}
+                  </p>
+                </div>
+
+                {/* Date & Price Row */}
+                <div className="flex items-center justify-between pt-2 border-t border-zinc-100 text-xs">
+                  <span className="text-zinc-400 font-medium text-[11px]" suppressHydrationWarning>
+                    {formattedDate}
+                  </span>
+                  <span className="font-black text-sm sm:text-base text-[#121212]">
+                    {formatPrice(order.total)}
                   </span>
                 </div>
-              </div>
-
-              {/* Second Row: Table */}
-              <div className="text-xs font-semibold text-zinc-400">
-                {order.tableLabel}
-              </div>
-
-              {/* Third Row: Date & Price */}
-              <div className="flex items-center justify-between pt-1 border-t border-zinc-100 text-xs">
-                <span className="text-zinc-400 font-medium" suppressHydrationWarning>
-                  {formattedDate}
-                </span>
-                <span className="font-black text-sm text-[#121212]">
-                  {formatPrice(order.total)}
-                </span>
-              </div>
-            </Link>
-          );
-        })}
+              </Link>
+            );
+          })}
+        </div>
       </main>
 
-      {/* Fixed Bottom Navigation Bar - Screen 10 */}
-      <nav className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-zinc-200/80 px-6 py-2.5 max-w-md mx-auto flex justify-around items-center shadow-lg">
+      {/* Fixed Bottom Navigation Bar - Visible on Mobile only */}
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-zinc-200/80 px-6 py-2.5 max-w-md mx-auto flex justify-around items-center shadow-lg">
         <Link
           href={`/t/${tableId || "05"}`}
           className="flex flex-col items-center gap-1 text-zinc-500 hover:text-[#FF6B2C] font-semibold text-[11px] transition-colors"

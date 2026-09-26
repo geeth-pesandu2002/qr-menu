@@ -41,7 +41,7 @@ export default function OrderSuccessPage({
         <div className="absolute bottom-1/3 left-1/5 w-2.5 h-2.5 rounded-full bg-[#06402B] opacity-40" />
       </div>
 
-      <div className="w-full max-w-sm bg-white rounded-3xl p-7 border border-zinc-200/90 shadow-2xl flex flex-col items-center text-center space-y-5 animate-in zoom-in-95 duration-300 relative z-10">
+      <div className="w-full max-w-md sm:max-w-lg bg-white rounded-3xl p-7 sm:p-10 border border-zinc-200/90 shadow-2xl flex flex-col items-center text-center space-y-6 animate-in zoom-in-95 duration-300 relative z-10">
         {/* Large Orange Success Circle with Checkmark */}
         <div className="w-20 h-20 rounded-full bg-[#FF6B2C] text-white flex items-center justify-center text-3xl font-black shadow-xl shadow-[#FF6B2C]/35">
           ✓
