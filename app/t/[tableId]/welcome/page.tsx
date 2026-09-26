@@ -121,62 +121,62 @@ export default function TableWelcomePage({
             </div>
           </div>
 
-          {/* Right Column: Glassmorphic Welcome Card */}
+          {/* Right Column: True Glassmorphic Welcome Card */}
           <div className="lg:col-span-6">
-            <div className="bg-white/95 backdrop-blur-2xl rounded-[36px] p-6 sm:p-10 border border-white/80 shadow-[0_25px_70px_rgba(0,0,0,0.45)] text-[#121212] space-y-6 relative overflow-hidden">
-              {/* Subtle Decorative Golden Gradient Flare */}
-              <div className="absolute -top-24 -right-24 w-48 h-48 bg-gradient-to-br from-[#FF6B2C]/20 to-[#E7A451]/20 rounded-full blur-2xl pointer-events-none" />
+            <div className="bg-white/15 backdrop-blur-2xl rounded-[36px] p-6 sm:p-10 border border-white/25 shadow-[inset_0_1px_1px_rgba(255,255,255,0.4),0_25px_60px_rgba(0,0,0,0.5)] text-white space-y-6 relative overflow-hidden">
+              {/* Top Glass Specular Line */}
+              <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/50 to-transparent pointer-events-none" />
 
               {/* Headline Block */}
               <div className="space-y-2 relative">
-                <div className="inline-flex items-center gap-2 bg-[#FF6B2C]/10 text-[#FF6B2C] border border-[#FF6B2C]/20 px-3.5 py-1.5 rounded-full text-xs font-black uppercase tracking-wider shadow-xs">
+                <div className="inline-flex items-center gap-2 bg-white/15 backdrop-blur-md text-[#FF854D] border border-white/25 px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-wider shadow-inner">
                   <span>✨</span>
                   <span>Welcome to</span>
                 </div>
 
-                <h1 className="text-3xl sm:text-4xl lg:text-5xl font-black text-[#121212] tracking-tight leading-tight">
+                <h1 className="text-3xl sm:text-4xl lg:text-5xl font-black text-white tracking-tight leading-tight drop-shadow-[0_2px_12px_rgba(0,0,0,0.4)]">
                   The Cozy Cafe
                 </h1>
 
-                <p className="text-sm font-bold text-zinc-500 leading-relaxed">
+                <p className="text-sm font-medium text-zinc-200 leading-relaxed drop-shadow-xs">
                   Good Food. Good People. Delicious moments crafted fresh for your table.
                 </p>
               </div>
 
-              {/* Verification & Table Status Box */}
-              <div className="bg-[#FAF7F2] p-4 sm:p-5 rounded-3xl border border-amber-200/60 shadow-xs flex items-center gap-4">
-                <div className="w-12 h-12 rounded-2xl bg-[#06402B] text-white flex items-center justify-center text-lg font-black shadow-lg shadow-emerald-950/20 flex-shrink-0">
+              {/* Verification & Table Status Box (Frosted Inset) */}
+              <div className="bg-white/10 backdrop-blur-xl p-4 sm:p-5 rounded-3xl border border-white/20 shadow-inner flex items-center gap-4">
+                <div className="w-12 h-12 rounded-2xl bg-emerald-500 text-white flex items-center justify-center text-lg font-black shadow-[0_0_25px_rgba(16,185,129,0.55)] flex-shrink-0">
                   ✓
                 </div>
                 <div className="space-y-0.5">
-                  <span className="font-black text-lg text-[#121212] block leading-tight">
+                  <span className="font-black text-lg text-white block leading-tight drop-shadow-xs">
                     Table {tableId} Identified
                   </span>
-                  <p className="text-xs text-zinc-500 font-semibold leading-relaxed">
+                  <p className="text-xs text-zinc-300 font-medium leading-relaxed">
                     You&apos;re all set! Browse dishes, customize your flavors, and place orders directly to our kitchen.
                   </p>
                 </div>
               </div>
 
-              {/* 4 Feature Highlights Grid */}
+              {/* 4 Feature Highlights Grid (Frosted Glass Pills) */}
               <div className="grid grid-cols-2 gap-3 pt-1">
-                <div className="bg-zinc-50 hover:bg-zinc-100/80 p-3 rounded-2xl border border-zinc-200/70 transition-colors flex items-center gap-2.5 text-xs font-extrabold text-zinc-700">
-                  <span className="text-base text-amber-500">⚡</span>
+                <div className="bg-white/10 hover:bg-white/20 backdrop-blur-md p-3.5 rounded-2xl border border-white/15 hover:border-white/30 transition-all duration-300 flex items-center gap-2.5 text-xs font-bold text-white shadow-xs hover:scale-[1.02]">
+                  <span className="text-base text-amber-400 drop-shadow-xs">⚡</span>
                   <span>Fast Kitchen Dispatch</span>
                 </div>
 
-                <div className="bg-zinc-50 hover:bg-zinc-100/80 p-3 rounded-2xl border border-zinc-200/70 transition-colors flex items-center gap-2.5 text-xs font-extrabold text-zinc-700">
-                  <span className="text-base text-indigo-500">📱</span>
+                <div className="bg-white/10 hover:bg-white/20 backdrop-blur-md p-3.5 rounded-2xl border border-white/15 hover:border-white/30 transition-all duration-300 flex items-center gap-2.5 text-xs font-bold text-white shadow-xs hover:scale-[1.02]">
+                  <span className="text-base text-indigo-300 drop-shadow-xs">📱</span>
                   <span>Live Order Tracking</span>
                 </div>
 
-                <div className="bg-zinc-50 hover:bg-zinc-100/80 p-3 rounded-2xl border border-zinc-200/70 transition-colors flex items-center gap-2.5 text-xs font-extrabold text-zinc-700">
-                  <span className="text-base text-emerald-500">💳</span>
+                <div className="bg-white/10 hover:bg-white/20 backdrop-blur-md p-3.5 rounded-2xl border border-white/15 hover:border-white/30 transition-all duration-300 flex items-center gap-2.5 text-xs font-bold text-white shadow-xs hover:scale-[1.02]">
+                  <span className="text-base text-emerald-400 drop-shadow-xs">💳</span>
                   <span>Instant Digital Bill</span>
                 </div>
 
-                <div className="bg-zinc-50 hover:bg-zinc-100/80 p-3 rounded-2xl border border-zinc-200/70 transition-colors flex items-center gap-2.5 text-xs font-extrabold text-zinc-700">
-                  <span className="text-base text-blue-500">📶</span>
+                <div className="bg-white/10 hover:bg-white/20 backdrop-blur-md p-3.5 rounded-2xl border border-white/15 hover:border-white/30 transition-all duration-300 flex items-center gap-2.5 text-xs font-bold text-white shadow-xs hover:scale-[1.02]">
+                  <span className="text-base text-sky-400 drop-shadow-xs">📶</span>
                   <span>Free High-Speed WiFi</span>
                 </div>
               </div>
@@ -185,19 +185,19 @@ export default function TableWelcomePage({
               <div className="space-y-3 pt-2">
                 <Link
                   href={`/t/${tableId}`}
-                  className="w-full py-4 sm:py-4.5 px-6 rounded-full bg-gradient-to-r from-[#FF6B2C] via-[#FF7B42] to-[#E55A1F] hover:from-[#E55A1F] hover:to-[#FF6B2C] text-white font-black text-base tracking-wide transition-all shadow-[0_12px_35px_rgba(255,107,44,0.4)] hover:shadow-[0_16px_45px_rgba(255,107,44,0.55)] flex items-center justify-center gap-3 transform hover:-translate-y-0.5 active:translate-y-0 relative overflow-hidden group"
+                  className="w-full py-4 sm:py-4.5 px-6 rounded-full bg-gradient-to-r from-[#FF6B2C] via-[#FF7B42] to-[#E55A1F] hover:from-[#E55A1F] hover:to-[#FF6B2C] text-white font-black text-base tracking-wide transition-all shadow-[0_12px_40px_rgba(255,107,44,0.55)] hover:shadow-[0_16px_50px_rgba(255,107,44,0.75)] flex items-center justify-center gap-3 transform hover:-translate-y-0.5 active:translate-y-0 relative overflow-hidden group"
                 >
                   {/* Interactive Shimmer Sheen */}
-                  <span className="absolute inset-0 w-1/2 h-full bg-white/25 skew-x-[-25deg] -translate-x-full group-hover:translate-x-[350%] transition-transform duration-1000 ease-in-out" />
-                  <span className="relative z-10">View Menu</span>
+                  <span className="absolute inset-0 w-1/2 h-full bg-white/30 skew-x-[-25deg] -translate-x-full group-hover:translate-x-[350%] transition-transform duration-1000 ease-in-out" />
+                  <span className="relative z-10 drop-shadow-sm">View Menu</span>
                   <span className="relative z-10 text-xl font-bold group-hover:translate-x-1.5 transition-transform duration-200">
                     →
                   </span>
                 </Link>
 
-                {/* Elegant Cursive Script with Drop Shadow */}
+                {/* Elegant Cursive Script with Warm Amber Glow */}
                 <div className="text-center pt-2">
-                  <p className="font-serif italic text-3xl sm:text-4xl text-[#121212]/80 drop-shadow-xs">
+                  <p className="font-serif italic text-3xl sm:text-4xl text-amber-200 drop-shadow-[0_2px_15px_rgba(251,191,36,0.45)]">
                     Enjoy your meal!
                   </p>
                 </div>
