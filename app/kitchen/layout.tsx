@@ -137,9 +137,5 @@ function KitchenLayoutContent({ children }: { children: React.ReactNode }) {
 }
 
 export default function KitchenLayout({ children }: { children: React.ReactNode }) {
-  return (
-    <KitchenProvider>
-      <KitchenLayoutContent>{children}</KitchenLayoutContent>
-    </KitchenProvider>
-  );
+  return <KitchenLayoutContent>{children}</KitchenLayoutContent>;
 }

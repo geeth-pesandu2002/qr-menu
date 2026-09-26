@@ -3,7 +3,7 @@
 import React, { use } from "react";
 import Link from "next/link";
 import { useCart } from "@/src/context/CartContext";
-import { formatPrice } from "@/src/lib/types";
+import { useKitchen } from "@/src/context/KitchenContext";
 
 export default function OrderStatusPage({
   params,
@@ -12,60 +12,105 @@ export default function OrderStatusPage({
 }) {
   const resolvedParams = use(params);
   const orderId = resolvedParams.orderId;
-  const { getOrderById, tableLabel } = useCart();
+  const { getOrderById, tableLabel, tableId } = useCart();
+  const { kitchenOrders } = useKitchen();
 
-  const order = getOrderById(orderId);
+  // Find order in diner cart orders, or in kitchen orders for live status synchronization
+  const cartOrder = getOrderById(orderId);
+  const kitchenOrder = kitchenOrders.find((o) => o.id === orderId);
+
+  const status = kitchenOrder ? kitchenOrder.status : cartOrder?.status || "PREPARING";
+  const displayTable = kitchenOrder?.tableLabel || cartOrder?.tableLabel || tableLabel || `Table ${tableId}`;
+
+  const isReceived = true; // Once placed, it's always received
+  const isPreparing = status === "PREPARING" || status === "SERVED" || status === "COMPLETED";
+  const isServed = status === "SERVED" || status === "COMPLETED";
+
+  const orderTimeStr = cartOrder
+    ? new Date(cartOrder.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+    : "1:25 PM";
+
+  const formattedDateStr = cartOrder
+    ? new Date(cartOrder.createdAt).toLocaleDateString("en-GB", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+      }) + `, ${orderTimeStr}`
+    : "12 Jul 2024, 1:25 PM";
 
   return (
-    <div className="min-h-screen bg-[#FAF7F2] text-[#121212] flex flex-col font-sans pb-12">
-      {/* Navigation Bar */}
-      <header className="bg-white border-b border-zinc-200 px-4 py-3 sticky top-0 z-40 flex items-center justify-between shadow-sm">
-        <Link
-          href="/t/05"
-          className="flex items-center gap-1.5 text-xs font-bold text-zinc-700 hover:text-[#FF6B2C]"
-        >
-          <span>←</span>
-          <span>Back to Menu</span>
-        </Link>
-        <span className="font-extrabold text-base text-[#121212]">Order Status</span>
-        <span className="text-xs bg-[#FF6B2C]/10 text-[#FF6B2C] font-bold px-2.5 py-1 rounded-full">
-          {order?.tableLabel || tableLabel}
-        </span>
+    <div className="min-h-screen bg-[#FAF7F2] text-[#121212] flex flex-col font-sans select-none pb-12">
+      {/* Top Header - Screen 9 */}
+      <header className="bg-white border-b border-zinc-200/80 px-4 py-3 sticky top-0 z-40 shadow-xs">
+        <div className="max-w-md mx-auto flex items-center justify-between">
+          <Link
+            href={`/t/${tableId || "05"}`}
+            className="flex items-center gap-1.5 text-xs font-bold text-zinc-600 hover:text-[#FF6B2C] transition-colors"
+          >
+            <span className="text-base">←</span>
+            <span>Back</span>
+          </Link>
+          <h1 className="font-black text-base text-[#121212]">Order Status</h1>
+          <div className="w-12" />
+        </div>
       </header>
 
       {/* Main Container */}
-      <main className="max-w-md mx-auto w-full px-4 pt-6 space-y-6">
-        {/* Order Header Card */}
-        <div className="bg-white p-5 rounded-3xl border border-zinc-200 shadow-sm flex items-center justify-between">
-          <div>
+      <main className="max-w-md mx-auto w-full px-4 pt-5 space-y-4 flex-1">
+        {/* Order Info Card */}
+        <div className="bg-white p-5 rounded-3xl border border-zinc-200/80 shadow-xs space-y-2">
+          <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <h1 className="text-xl font-black text-[#121212]">Order #{orderId}</h1>
+              <span className="text-base">📋</span>
+              <h2 className="font-black text-base text-[#121212]">Order #{orderId}</h2>
             </div>
-            <p className="text-xs text-zinc-500 mt-0.5" suppressHydrationWarning>
-              Placed at {order ? new Date(order.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "1:25 PM"}
-            </p>
+            <span
+              className={`text-xs font-extrabold px-3 py-1 rounded-full ${
+                status === "COMPLETED" || status === "SERVED"
+                  ? "bg-emerald-100 text-emerald-800"
+                  : status === "PREPARING"
+                  ? "bg-amber-100 text-amber-800"
+                  : "bg-orange-100 text-orange-800"
+              }`}
+            >
+              {status === "COMPLETED"
+                ? "Served"
+                : status === "SERVED"
+                ? "Ready to Serve"
+                : status === "PREPARING"
+                ? "Preparing"
+                : "Received"}
+            </span>
           </div>
-          <div className="bg-amber-50 border border-amber-200 px-3.5 py-2 rounded-2xl text-center">
-            <span className="text-[10px] uppercase font-bold text-amber-800 block">Est. Time</span>
-            <span className="text-sm font-extrabold text-amber-900">~15 mins</span>
+
+          <div className="text-xs text-zinc-500 font-semibold space-y-1 pt-1">
+            <p className="flex items-center gap-2">
+              <span>🪑</span>
+              <span>{displayTable}</span>
+            </p>
+            <p className="flex items-center gap-2 text-zinc-400 text-[11px]" suppressHydrationWarning>
+              <span>🕒</span>
+              <span>{formattedDateStr}</span>
+            </p>
           </div>
         </div>
 
-        {/* Live Stepper Timeline */}
-        <div className="bg-white p-6 rounded-3xl border border-zinc-200 shadow-sm space-y-6">
-          <h2 className="text-xs font-bold uppercase tracking-wider text-zinc-500">
-            Live Preparation Progress
-          </h2>
-
-          <div className="relative pl-6 space-y-8 before:absolute before:left-2.5 before:top-3 before:bottom-3 before:w-0.5 before:bg-zinc-200">
-            {/* Step 1: Received */}
+        {/* Vertical Timeline Stepper - Screen 9 */}
+        <div className="bg-white p-6 rounded-3xl border border-zinc-200/80 shadow-xs space-y-6">
+          <div className="relative pl-8 space-y-8 before:absolute before:left-3.5 before:top-4 before:bottom-4 before:w-0.5 before:bg-zinc-200">
+            {/* Step 1: Order Received */}
             <div className="relative flex items-start gap-4">
-              <div className="absolute -left-6 w-5 h-5 rounded-full bg-[#06402B] text-white text-xs font-bold flex items-center justify-center shadow-md">
+              <div className="absolute -left-8 w-7 h-7 rounded-full bg-[#FF6B2C] text-white text-xs font-black flex items-center justify-center shadow-md shadow-[#FF6B2C]/25">
                 ✓
               </div>
-              <div>
-                <h3 className="font-bold text-sm text-[#121212]">Order Received</h3>
-                <p className="text-xs text-zinc-500 mt-0.5">
+              <div className="space-y-0.5">
+                <div className="flex items-center gap-2">
+                  <h3 className="font-extrabold text-sm text-[#121212]">Order Received</h3>
+                  <span className="text-[11px] text-zinc-400 font-semibold" suppressHydrationWarning>
+                    {orderTimeStr}
+                  </span>
+                </div>
+                <p className="text-xs text-zinc-500 leading-relaxed">
                   Your order has been received by the restaurant.
                 </p>
               </div>
@@ -73,31 +118,46 @@ export default function OrderStatusPage({
 
             {/* Step 2: Preparing */}
             <div className="relative flex items-start gap-4">
-              <div className="absolute -left-6 w-5 h-5 rounded-full bg-[#E7A451] text-white text-xs font-bold flex items-center justify-center animate-ping" />
-              <div className="absolute -left-6 w-5 h-5 rounded-full bg-[#E7A451] text-white text-xs font-bold flex items-center justify-center shadow-md">
-                🔥
+              <div
+                className={`absolute -left-8 w-7 h-7 rounded-full flex items-center justify-center text-xs font-black shadow-md transition-all ${
+                  isPreparing
+                    ? "bg-[#FF6B2C] text-white ring-4 ring-[#FF6B2C]/20 shadow-[#FF6B2C]/25"
+                    : "bg-zinc-200 text-zinc-400"
+                }`}
+              >
+                {isServed ? "✓" : "🍳"}
               </div>
-              <div>
+              <div className="space-y-0.5">
                 <div className="flex items-center gap-2">
-                  <h3 className="font-extrabold text-sm text-[#121212]">Preparing</h3>
-                  <span className="bg-amber-100 text-amber-800 text-[10px] font-bold px-2 py-0.5 rounded-full">
-                    In Progress
-                  </span>
+                  <h3 className={`font-extrabold text-sm ${isPreparing ? "text-[#121212]" : "text-zinc-400"}`}>
+                    Preparing
+                  </h3>
+                  {isPreparing && !isServed && (
+                    <span className="w-2 h-2 rounded-full bg-[#FF6B2C] animate-pulse" />
+                  )}
                 </div>
-                <p className="text-xs text-zinc-500 mt-0.5">
-                  Your food is currently being prepared in the kitchen.
+                <p className="text-xs text-zinc-500 leading-relaxed">
+                  Your food is being prepared in the kitchen.
                 </p>
               </div>
             </div>
 
             {/* Step 3: Served */}
-            <div className="relative flex items-start gap-4 opacity-50">
-              <div className="absolute -left-6 w-5 h-5 rounded-full bg-zinc-300 text-white text-xs font-bold flex items-center justify-center">
-                3
+            <div className={`relative flex items-start gap-4 ${isServed ? "" : "opacity-45"}`}>
+              <div
+                className={`absolute -left-8 w-7 h-7 rounded-full flex items-center justify-center text-xs font-black transition-all ${
+                  isServed
+                    ? "bg-[#06402B] text-white shadow-md shadow-emerald-900/20"
+                    : "bg-zinc-200 text-zinc-400"
+                }`}
+              >
+                {isServed ? "✓" : "🍽️"}
               </div>
-              <div>
-                <h3 className="font-bold text-sm text-[#121212]">Served</h3>
-                <p className="text-xs text-zinc-500 mt-0.5">
+              <div className="space-y-0.5">
+                <h3 className={`font-extrabold text-sm ${isServed ? "text-[#121212]" : "text-zinc-400"}`}>
+                  Served
+                </h3>
+                <p className="text-xs text-zinc-500 leading-relaxed">
                   We&apos;ll notify you when it&apos;s ready to be served.
                 </p>
               </div>
@@ -105,40 +165,30 @@ export default function OrderStatusPage({
           </div>
         </div>
 
-        {/* Order Items Breakdown */}
-        {order && (
-          <div className="bg-white p-5 rounded-3xl border border-zinc-200 shadow-sm space-y-4">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-500">
-              Order Summary
-            </h3>
-
-            <div className="space-y-3 divide-y divide-zinc-100">
-              {order.lines.map((line, idx) => (
-                <div key={idx} className="pt-2 first:pt-0 flex justify-between items-center text-xs">
-                  <div>
-                    <p className="font-bold text-sm text-[#121212]">
-                      {line.qty}x {line.name}
-                    </p>
-                    {line.variantLabel && (
-                      <p className="text-zinc-500">{line.variantLabel}</p>
-                    )}
-                    {line.note && (
-                      <p className="text-amber-700 italic mt-0.5">Note: &quot;{line.note}&quot;</p>
-                    )}
-                  </div>
-                  <span className="font-bold text-sm text-[#121212]">
-                    {formatPrice(line.unitPrice * line.qty)}
-                  </span>
-                </div>
-              ))}
-
-              <div className="pt-3 flex justify-between font-extrabold text-sm text-[#121212]">
-                <span>Total Paid</span>
-                <span className="text-[#FF6B2C]">{formatPrice(order.total)}</span>
-              </div>
-            </div>
+        {/* Estimated Time Card - Screen 9 */}
+        <div className="bg-white p-4 rounded-3xl border border-zinc-200/80 shadow-xs flex items-center gap-3">
+          <div className="w-10 h-10 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center text-xl font-bold border border-amber-200">
+            🕒
           </div>
-        )}
+          <div>
+            <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider block">
+              Estimated Time
+            </span>
+            <span className="text-sm font-black text-[#121212]">
+              ~ 15 minutes
+            </span>
+          </div>
+        </div>
+
+        {/* Action Link */}
+        <div className="pt-2">
+          <Link
+            href={`/t/${tableId || "05"}`}
+            className="w-full py-4 rounded-full bg-white hover:bg-zinc-100 text-[#121212] font-black text-xs border border-zinc-200 shadow-xs flex items-center justify-center transition-all"
+          >
+            Order More Dishes
+          </Link>
+        </div>
       </main>
     </div>
   );

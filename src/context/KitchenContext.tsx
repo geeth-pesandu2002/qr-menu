@@ -16,6 +16,7 @@ interface KitchenContextType {
   getOrdersByStatus: (statusGroup: "NEW" | "PREPARING" | "READY" | "SERVED") => KitchenOrder[];
   activeOrder: KitchenOrder | null;
   setActiveOrder: (order: KitchenOrder | null) => void;
+  addKitchenOrder: (order: Order) => void;
 }
 
 // Initial mock orders matching the Kitchen Staff UI screenshot (Tables 05, 03, 02, 07, 08, 06)
@@ -192,6 +193,14 @@ export const KitchenProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
   };
 
+  const addKitchenOrder = (newOrder: Order) => {
+    const kitchenItem: KitchenOrder = {
+      ...newOrder,
+      elapsedMinutes: 1,
+    };
+    setKitchenOrders((prev) => [kitchenItem, ...prev]);
+  };
+
   return (
     <KitchenContext.Provider
       value={{
@@ -203,6 +212,7 @@ export const KitchenProvider: React.FC<{ children: React.ReactNode }> = ({ child
         getOrdersByStatus,
         activeOrder,
         setActiveOrder,
+        addKitchenOrder,
       }}
     >
       {children}

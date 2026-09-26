@@ -159,6 +159,17 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
 
     setOrders((prev) => [newOrder, ...prev]);
+
+    // Also sync order to kitchen orders for live kitchen board integration
+    try {
+      const savedKitchenOrders = localStorage.getItem("dinego_kitchen_orders");
+      const kitchenList = savedKitchenOrders ? JSON.parse(savedKitchenOrders) : [];
+      localStorage.setItem(
+        "dinego_kitchen_orders",
+        JSON.stringify([{ ...newOrder, elapsedMinutes: 1 }, ...kitchenList])
+      );
+    } catch {}
+
     clearCart();
     return newOrder;
   };

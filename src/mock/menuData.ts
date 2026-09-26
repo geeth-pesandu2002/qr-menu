@@ -1,11 +1,34 @@
 import { Category, MenuItem, RestaurantTable } from "../lib/types";
 
 export const mockCategories: Category[] = [
-  { id: "burgers", name: "Burgers", icon: "🍔", sortOrder: 1 },
-  { id: "pizza", name: "Pizza", icon: "🍕", sortOrder: 2 },
-  { id: "pasta", name: "Pasta", icon: "🍝", sortOrder: 3 },
-  { id: "drinks", name: "Drinks", icon: "🥤", sortOrder: 4 },
-  { id: "desserts", name: "Desserts", icon: "🍰", sortOrder: 5 },
+  {
+    id: "burgers",
+    name: "Burgers",
+    icon: "🍔",
+    sortOrder: 1,
+    imageUrl: "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=600&auto=format&fit=crop&q=80",
+  },
+  {
+    id: "pizza",
+    name: "Pizza",
+    icon: "🍕",
+    sortOrder: 2,
+    imageUrl: "https://images.unsplash.com/photo-1604382354936-07c5d9983bd3?w=600&auto=format&fit=crop&q=80",
+  },
+  {
+    id: "drinks",
+    name: "Drinks",
+    icon: "🥤",
+    sortOrder: 3,
+    imageUrl: "https://images.unsplash.com/photo-1517701604599-bb29b565090c?w=600&auto=format&fit=crop&q=80",
+  },
+  {
+    id: "desserts",
+    name: "Desserts",
+    icon: "🍰",
+    sortOrder: 4,
+    imageUrl: "https://images.unsplash.com/photo-1578985545062-69928b1d9587?w=600&auto=format&fit=crop&q=80",
+  },
 ];
 
 export const mockMenuItems: MenuItem[] = [
