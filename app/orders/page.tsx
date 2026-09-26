@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import { useCart } from "@/src/context/CartContext";
+import { ThemeToggle } from "@/src/context/ThemeContext";
 import { formatPrice } from "@/src/lib/types";
 import CartDrawer from "@/src/components/diner/CartDrawer";
 
@@ -78,38 +79,44 @@ export default function OrderHistoryPage() {
   });
 
   return (
-    <div className="min-h-screen bg-[#FAF7F2] text-[#121212] flex flex-col font-sans select-none pb-24 md:pb-12">
-      {/* Top Header - Responsive */}
-      <header className="bg-white/95 backdrop-blur-md border-b border-zinc-200/80 px-4 sm:px-8 py-3.5 sticky top-0 z-40 shadow-xs">
+    <div className="min-h-screen bg-[#FAF7F2] dark:bg-[#0D0D0D] text-[#121212] dark:text-white flex flex-col font-sans select-none pb-24 md:pb-12 relative overflow-hidden transition-colors">
+      {/* Ambient Glowing Orbs for Frosted Glass Refraction */}
+      <div className="absolute top-16 left-10 w-96 h-96 rounded-full bg-[#FF6B2C]/15 dark:bg-[#FF6B2C]/20 blur-[130px] pointer-events-none animate-pulse" />
+      <div className="absolute bottom-20 right-10 w-[420px] h-[420px] rounded-full bg-[#E7A451]/15 dark:bg-[#E7A451]/20 blur-[150px] pointer-events-none" />
+
+      {/* Top Header - Frosted Glass */}
+      <header className="bg-white/75 dark:bg-black/55 backdrop-blur-2xl border-b border-zinc-200/70 dark:border-white/10 px-4 sm:px-8 py-3.5 sticky top-0 z-40 shadow-xs transition-colors">
         <div className="max-w-6xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-xl bg-[#FF6B2C] flex items-center justify-center font-bold text-white text-base shadow-sm shadow-[#FF6B2C]/30">
               🍴
             </div>
             <div>
-              <h1 className="text-lg sm:text-xl font-black tracking-tight text-[#121212]">
+              <h1 className="text-lg sm:text-xl font-black tracking-tight text-[#121212] dark:text-white">
                 My Orders
               </h1>
-              <p className="text-[11px] text-zinc-400 font-semibold hidden sm:block">
+              <p className="text-[11px] text-zinc-400 dark:text-zinc-500 font-semibold hidden sm:block">
                 View current and past table orders
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
+            <ThemeToggle />
             <Link
               href={`/t/${tableId || "05"}`}
-              className="px-4 py-2 rounded-full bg-zinc-100 hover:bg-zinc-200 text-zinc-700 font-bold text-xs transition-colors flex items-center gap-1.5"
+              className="px-4 py-2 rounded-full bg-zinc-100 dark:bg-white/10 hover:bg-zinc-200 dark:hover:bg-white/20 text-zinc-700 dark:text-zinc-200 font-bold text-xs transition-colors flex items-center gap-1.5"
             >
               <span>←</span>
-              <span>Back to Menu</span>
+              <span className="hidden sm:inline">Back to Menu</span>
+              <span className="sm:hidden">Menu</span>
             </Link>
           </div>
         </div>
       </header>
 
       {/* Main Container */}
-      <main className="max-w-6xl mx-auto w-full px-4 sm:px-8 pt-6 sm:pt-8 flex-1 space-y-6">
+      <main className="relative z-10 max-w-6xl mx-auto w-full px-4 sm:px-8 pt-6 sm:pt-8 flex-1 space-y-6">
         {/* Filter Pills */}
         <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
           {[
@@ -122,8 +129,8 @@ export default function OrderHistoryPage() {
               onClick={() => setStatusFilter(tab.id)}
               className={`px-4 py-2 rounded-full text-xs font-bold transition-all shadow-xs whitespace-nowrap ${
                 statusFilter === tab.id
-                  ? "bg-[#FF6B2C] text-white"
-                  : "bg-white text-zinc-700 hover:bg-zinc-100 border border-zinc-200"
+                  ? "bg-[#FF6B2C] text-white shadow-md shadow-[#FF6B2C]/25"
+                  : "bg-white/80 dark:bg-white/10 backdrop-blur-md text-zinc-700 dark:text-zinc-300 hover:bg-white dark:hover:bg-white/15 border border-zinc-200/80 dark:border-white/15"
               }`}
             >
               {tab.label}
@@ -155,22 +162,22 @@ export default function OrderHistoryPage() {
               <Link
                 key={order.id}
                 href={`/orders/${order.id}`}
-                className="bg-white p-5 rounded-3xl border border-zinc-200/80 shadow-xs hover:shadow-lg hover:-translate-y-0.5 transition-all flex flex-col justify-between gap-3 group block active:scale-99"
+                className="bg-white/80 dark:bg-white/[0.07] backdrop-blur-2xl p-5 rounded-3xl border border-white/80 dark:border-white/10 shadow-lg shadow-black/5 dark:shadow-black/30 hover:shadow-2xl hover:-translate-y-1 transition-all flex flex-col justify-between gap-3 group block active:scale-99"
               >
                 {/* Top Row: #1024, Status Badge, > */}
                 <div className="flex items-center justify-between">
-                  <span className="font-black text-base sm:text-lg text-[#121212] group-hover:text-[#FF6B2C] transition-colors">
+                  <span className="font-black text-base sm:text-lg text-[#121212] dark:text-white group-hover:text-[#FF6B2C] transition-colors">
                     #{order.id}
                   </span>
 
                   <div className="flex items-center gap-2">
                     <span
-                      className={`text-[11px] font-extrabold px-3 py-1 rounded-full ${
+                      className={`text-[11px] font-extrabold px-3 py-1 rounded-full transition-colors ${
                         isPreparing
-                          ? "bg-amber-100 text-amber-800"
+                          ? "bg-amber-100 text-amber-800 dark:bg-amber-500/20 dark:text-amber-400 border border-amber-500/30"
                           : isServed
-                          ? "bg-emerald-100 text-emerald-800"
-                          : "bg-zinc-100 text-zinc-600"
+                          ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-500/20 dark:text-emerald-400 border border-emerald-500/30"
+                          : "bg-zinc-100 text-zinc-600 dark:bg-white/10 dark:text-zinc-400 border border-zinc-200 dark:border-white/10"
                       }`}
                     >
                       {isPreparing
@@ -179,7 +186,7 @@ export default function OrderHistoryPage() {
                         ? "Served"
                         : "Completed"}
                     </span>
-                    <span className="text-zinc-400 font-bold group-hover:translate-x-1 transition-transform text-sm">
+                    <span className="text-zinc-400 dark:text-zinc-500 font-bold group-hover:translate-x-1 transition-transform text-sm">
                       ›
                     </span>
                   </div>
@@ -187,21 +194,21 @@ export default function OrderHistoryPage() {
 
                 {/* Table & Items Overview */}
                 <div className="space-y-1">
-                  <div className="text-xs font-bold text-zinc-700 flex items-center gap-1.5">
+                  <div className="text-xs font-bold text-zinc-700 dark:text-zinc-300 flex items-center gap-1.5">
                     <span>🪑</span>
                     <span>{order.tableLabel}</span>
                   </div>
-                  <p className="text-xs text-zinc-400 line-clamp-1">
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400 line-clamp-1">
                     {order.lines.map((l) => `${l.name} x${l.qty}`).join(", ")}
                   </p>
                 </div>
 
                 {/* Date & Price Row */}
-                <div className="flex items-center justify-between pt-2 border-t border-zinc-100 text-xs">
-                  <span className="text-zinc-400 font-medium text-[11px]" suppressHydrationWarning>
+                <div className="flex items-center justify-between pt-2 border-t border-zinc-200/60 dark:border-white/10 text-xs">
+                  <span className="text-zinc-400 dark:text-zinc-500 font-medium text-[11px]" suppressHydrationWarning>
                     {formattedDate}
                   </span>
-                  <span className="font-black text-sm sm:text-base text-[#121212]">
+                  <span className="font-black text-sm sm:text-base text-[#121212] dark:text-white">
                     {formatPrice(order.total)}
                   </span>
                 </div>
@@ -212,10 +219,10 @@ export default function OrderHistoryPage() {
       </main>
 
       {/* Fixed Bottom Navigation Bar - Visible on Mobile only */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-zinc-200/80 px-6 py-2.5 max-w-md mx-auto flex justify-around items-center shadow-lg">
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/80 dark:bg-black/60 backdrop-blur-2xl border-t border-zinc-200/80 dark:border-white/10 px-6 py-2.5 max-w-md mx-auto flex justify-around items-center shadow-lg transition-colors">
         <Link
           href={`/t/${tableId || "05"}`}
-          className="flex flex-col items-center gap-1 text-zinc-500 hover:text-[#FF6B2C] font-semibold text-[11px] transition-colors"
+          className="flex flex-col items-center gap-1 text-zinc-500 dark:text-zinc-400 hover:text-[#FF6B2C] font-semibold text-[11px] transition-colors"
         >
           <div className="w-6 h-6 flex items-center justify-center text-lg">
             📱
@@ -225,7 +232,7 @@ export default function OrderHistoryPage() {
 
         <button
           onClick={() => setIsCartOpen(true)}
-          className="relative flex flex-col items-center gap-1 text-zinc-500 hover:text-[#FF6B2C] font-semibold text-[11px] transition-colors"
+          className="relative flex flex-col items-center gap-1 text-zinc-500 dark:text-zinc-400 hover:text-[#FF6B2C] font-semibold text-[11px] transition-colors"
         >
           <div className="w-6 h-6 flex items-center justify-center text-lg">
             🛒

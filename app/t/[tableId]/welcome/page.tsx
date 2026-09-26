@@ -5,6 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCart } from "@/src/context/CartContext";
+import { ThemeToggle } from "@/src/context/ThemeContext";
 
 export default function TableWelcomePage({
   params,
@@ -75,12 +76,16 @@ export default function TableWelcomePage({
               <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
               <span>Table {tableId}</span>
             </div>
+            <ThemeToggle />
           </div>
 
-          {/* Mobile Table Badge */}
-          <div className="md:hidden flex items-center gap-2 bg-white/15 px-3 py-1 rounded-full border border-white/20 text-white font-bold text-xs">
-            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-            <span>Table {tableId}</span>
+          {/* Mobile Right Header: Table Badge + ThemeToggle */}
+          <div className="md:hidden flex items-center gap-2">
+            <div className="flex items-center gap-1.5 bg-white/15 px-3 py-1 rounded-full border border-white/20 text-white font-bold text-xs">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+              <span>Table {tableId}</span>
+            </div>
+            <ThemeToggle />
           </div>
         </div>
       </header>
