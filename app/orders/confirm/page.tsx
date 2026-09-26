@@ -27,12 +27,22 @@ export default function ConfirmOrderPage() {
 
   return (
     <div className="min-h-screen bg-[#FAF7F2] dark:bg-[#0D0D0D] text-[#121212] dark:text-white flex flex-col font-sans select-none pb-12 relative overflow-x-hidden transition-colors duration-300">
-      {/* Ambient Glowing Orbs */}
-      <div className="absolute top-20 left-10 w-96 h-96 rounded-full bg-[#FF6B2C]/15 dark:bg-[#FF6B2C]/20 blur-[130px] pointer-events-none animate-pulse" />
-      <div className="absolute bottom-20 right-10 w-[400px] h-[400px] rounded-full bg-[#E7A451]/15 dark:bg-[#E7A451]/20 blur-[150px] pointer-events-none" />
+      {/* Ambient Cafe Photography & Glowing Lights fixed in background */}
+      <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden select-none">
+        <Image
+          src="/welcome-ambient-bg.jpg"
+          alt="Cafe Ambience"
+          fill
+          className="object-cover opacity-20 dark:opacity-30 filter blur-[1px] scale-105 transition-opacity duration-700"
+          priority
+        />
+        <div className="absolute top-[-5%] left-[-5%] w-[550px] h-[550px] rounded-full bg-[#FF6B2C]/25 dark:bg-[#FF6B2C]/30 blur-[140px] animate-pulse" />
+        <div className="absolute bottom-[-10%] right-[-10%] w-[600px] h-[600px] rounded-full bg-[#E7A451]/20 dark:bg-[#E7A451]/25 blur-[160px]" />
+        <div className="absolute inset-0 bg-[#FAF7F2]/75 dark:bg-[#0D0D0D]/85 backdrop-blur-[2px] transition-colors duration-500" />
+      </div>
 
       {/* Top Header - Frosted Glass */}
-      <header className="bg-white/75 dark:bg-black/55 backdrop-blur-2xl border-b border-zinc-200/70 dark:border-white/10 px-4 sm:px-8 py-3.5 sticky top-0 z-40 shadow-xs transition-colors">
+      <header className="bg-white/70 dark:bg-black/60 backdrop-blur-2xl border-b border-white/60 dark:border-white/10 px-4 sm:px-8 py-3.5 sticky top-0 z-40 shadow-sm transition-colors duration-300">
         <div className="max-w-6xl mx-auto flex items-center justify-between">
           <Link
             href={`/t/${tableId}`}

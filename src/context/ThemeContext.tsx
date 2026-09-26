@@ -13,36 +13,37 @@ interface ThemeContextType {
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [theme, setThemeState] = useState<Theme>("dark");
+  const [theme, setThemeState] = useState<Theme>("light");
   const [isMounted, setIsMounted] = useState<boolean>(false);
 
   useEffect(() => {
     try {
       const saved = localStorage.getItem("dinego_theme") as Theme | null;
-      if (saved === "light" || saved === "dark") {
-        setThemeState(saved);
-        if (saved === "dark") {
-          document.documentElement.classList.add("dark");
-        } else {
-          document.documentElement.classList.remove("dark");
-        }
-      } else {
-        // Default to dark for luxury glowing glassmorphism experience
-        document.documentElement.classList.add("dark");
-      }
-    } catch {}
+      const initialTheme = saved === "dark" || saved === "light" ? saved : "light";
+      setThemeState(initialTheme);
+      applyTheme(initialTheme);
+    } catch {
+      applyTheme("light");
+    }
     setIsMounted(true);
   }, []);
 
-  const setTheme = (newTheme: Theme) => {
-    setThemeState(newTheme);
-    try {
-      localStorage.setItem("dinego_theme", newTheme);
-      if (newTheme === "dark") {
+  const applyTheme = (t: Theme) => {
+    if (typeof document !== "undefined") {
+      document.documentElement.setAttribute("data-theme", t);
+      if (t === "dark") {
         document.documentElement.classList.add("dark");
       } else {
         document.documentElement.classList.remove("dark");
       }
+    }
+  };
+
+  const setTheme = (newTheme: Theme) => {
+    setThemeState(newTheme);
+    applyTheme(newTheme);
+    try {
+      localStorage.setItem("dinego_theme", newTheme);
     } catch {}
   };
 
@@ -65,29 +66,44 @@ export const useTheme = () => {
   return context;
 };
 
-// Global Animated Dark/Light Mode Switcher Button
+// Global Segmented Animated Dark/Light Mode Switcher Button
 export const ThemeToggle: React.FC<{ className?: string }> = ({ className = "" }) => {
-  const { theme, toggleTheme } = useTheme();
+  const { theme, setTheme } = useTheme();
   const isDark = theme === "dark";
 
   return (
-    <button
-      onClick={toggleTheme}
-      type="button"
-      className={`relative inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full transition-all duration-300 backdrop-blur-xl select-none active:scale-95 shadow-md ${
-        isDark
-          ? "bg-white/10 hover:bg-white/20 border border-white/25 text-amber-300 shadow-black/20"
-          : "bg-black/5 hover:bg-black/10 border border-zinc-200 text-zinc-800 shadow-zinc-200"
-      } ${className}`}
-      title={isDark ? "Switch to Light Mode" : "Switch to Dark Mode"}
-      aria-label="Toggle dark/light mode"
+    <div
+      className={`inline-flex items-center bg-black/5 dark:bg-white/10 p-0.5 sm:p-1 rounded-full border border-black/10 dark:border-white/15 backdrop-blur-2xl shadow-inner select-none transition-colors ${className}`}
+      role="group"
+      aria-label="Theme mode switcher"
     >
-      <span className="text-sm transition-transform duration-300 transform group-hover:rotate-12">
-        {isDark ? "🌙" : "☀️"}
-      </span>
-      <span className="text-[11px] font-black uppercase tracking-wider hidden sm:inline-block">
-        {isDark ? "Dark" : "Light"}
-      </span>
-    </button>
+      <button
+        type="button"
+        onClick={() => setTheme("light")}
+        className={`flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1 rounded-full text-[11px] sm:text-xs font-black transition-all duration-200 active:scale-95 ${
+          !isDark
+            ? "bg-white text-zinc-900 shadow-sm shadow-black/10 font-black scale-102"
+            : "text-zinc-500 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-white"
+        }`}
+        title="Switch to Light Mode"
+      >
+        <span>☀️</span>
+        <span>Light</span>
+      </button>
+
+      <button
+        type="button"
+        onClick={() => setTheme("dark")}
+        className={`flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1 rounded-full text-[11px] sm:text-xs font-black transition-all duration-200 active:scale-95 ${
+          isDark
+            ? "bg-[#FF6B2C] text-white shadow-md shadow-[#FF6B2C]/40 font-black scale-102"
+            : "text-zinc-500 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-white"
+        }`}
+        title="Switch to Dark Mode"
+      >
+        <span>🌙</span>
+        <span>Dark</span>
+      </button>
+    </div>
   );
 };

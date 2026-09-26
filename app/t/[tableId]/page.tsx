@@ -58,12 +58,24 @@ export default function CustomerMenuPage({
 
   return (
     <div className="min-h-screen bg-[#FAF7F2] dark:bg-[#0D0D0D] text-[#121212] dark:text-white flex flex-col font-sans pb-24 md:pb-12 select-none relative overflow-x-hidden transition-colors duration-300">
-      {/* Ambient Glowing Orbs behind the Glass */}
-      <div className="absolute top-20 left-10 w-96 h-96 rounded-full bg-[#FF6B2C]/15 dark:bg-[#FF6B2C]/20 blur-[130px] pointer-events-none animate-pulse" />
-      <div className="absolute bottom-40 right-10 w-[450px] h-[450px] rounded-full bg-[#E7A451]/15 dark:bg-[#E7A451]/20 blur-[150px] pointer-events-none animate-[pulse_6s_infinite]" />
+      {/* Ambient Cafe Photography & Glowing Lights fixed in background */}
+      <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden select-none">
+        <Image
+          src="/welcome-ambient-bg.jpg"
+          alt="Cafe Ambience"
+          fill
+          className="object-cover opacity-20 dark:opacity-30 filter blur-[1px] scale-105 transition-opacity duration-700"
+          priority
+        />
+        {/* Vibrant Glassmorphic Lighting Glows */}
+        <div className="absolute top-[-5%] left-[-5%] w-[550px] h-[550px] rounded-full bg-[#FF6B2C]/25 dark:bg-[#FF6B2C]/30 blur-[140px] animate-pulse" />
+        <div className="absolute top-[25%] right-[-10%] w-[600px] h-[600px] rounded-full bg-[#E7A451]/20 dark:bg-[#E7A451]/25 blur-[160px]" />
+        <div className="absolute bottom-[-10%] left-[15%] w-[650px] h-[650px] rounded-full bg-[#FF6B2C]/15 dark:bg-[#198754]/20 blur-[180px]" />
+        <div className="absolute inset-0 bg-[#FAF7F2]/75 dark:bg-[#0D0D0D]/85 backdrop-blur-[2px] transition-colors duration-500" />
+      </div>
 
       {/* Top Header - Frosted Glass Navbar */}
-      <header className="sticky top-0 z-40 bg-white/75 dark:bg-black/55 backdrop-blur-2xl border-b border-zinc-200/70 dark:border-white/10 px-4 sm:px-8 py-3.5 shadow-xs transition-colors duration-300">
+      <header className="sticky top-0 z-40 bg-white/70 dark:bg-black/60 backdrop-blur-2xl border-b border-white/60 dark:border-white/10 px-4 sm:px-8 py-3.5 shadow-sm transition-colors duration-300">
         <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
           {/* Left: Brand Logo & Back Option */}
           <div className="flex items-center gap-3">
@@ -88,7 +100,7 @@ export default function CustomerMenuPage({
               </Link>
             )}
 
-            <span className="hidden sm:inline-block text-xs bg-zinc-100 dark:bg-white/10 text-zinc-700 dark:text-zinc-300 font-extrabold px-3 py-1 rounded-full border border-zinc-200 dark:border-white/10">
+            <span className="hidden sm:inline-block text-xs bg-white/60 dark:bg-white/10 text-zinc-700 dark:text-zinc-300 font-extrabold px-3 py-1 rounded-full border border-white/80 dark:border-white/10 shadow-xs backdrop-blur-md">
               {tableLabel}
             </span>
           </div>
@@ -117,7 +129,7 @@ export default function CustomerMenuPage({
             {/* Global Theme Toggle Button */}
             <ThemeToggle />
 
-            <span className="sm:hidden text-xs bg-zinc-100 dark:bg-white/10 text-zinc-700 dark:text-zinc-300 font-extrabold px-2.5 py-1 rounded-full border border-zinc-200 dark:border-white/10">
+            <span className="sm:hidden text-xs bg-white/60 dark:bg-white/10 text-zinc-700 dark:text-zinc-300 font-extrabold px-2.5 py-1 rounded-full border border-white/80 dark:border-white/10">
               {tableLabel}
             </span>
 
@@ -135,7 +147,7 @@ export default function CustomerMenuPage({
             {/* Mobile Icon-only Cart Button */}
             <button
               onClick={() => setIsCartOpen(true)}
-              className="md:hidden relative w-9 h-9 rounded-full bg-zinc-100 dark:bg-white/10 hover:bg-zinc-200 dark:hover:bg-white/20 flex items-center justify-center text-zinc-700 dark:text-zinc-200 transition-colors"
+              className="md:hidden relative w-9 h-9 rounded-full bg-white/60 dark:bg-white/10 hover:bg-white/90 dark:hover:bg-white/20 flex items-center justify-center text-zinc-700 dark:text-zinc-200 transition-colors shadow-xs"
               title="Open Cart"
             >
               <span className="text-lg">🛒</span>
@@ -158,7 +170,7 @@ export default function CustomerMenuPage({
           {/* Desktop Left Sidebar (Frosted Glass Container) */}
           <aside className="hidden lg:block lg:col-span-3 space-y-6 sticky top-20">
             {/* Category Selector Glass Card */}
-            <div className="bg-white/70 dark:bg-white/[0.08] backdrop-blur-2xl rounded-3xl p-5 border border-white/80 dark:border-white/15 shadow-[0_15px_35px_rgba(0,0,0,0.06)] dark:shadow-[0_20px_50px_rgba(0,0,0,0.4)] space-y-3">
+            <div className="bg-white/60 dark:bg-white/[0.07] backdrop-blur-2xl rounded-3xl p-5 border border-white/80 dark:border-white/15 shadow-[0_10px_30px_rgba(0,0,0,0.04),inset_0_1px_1px_rgba(255,255,255,0.9)] dark:shadow-[0_20px_50px_rgba(0,0,0,0.45),inset_0_1px_1px_rgba(255,255,255,0.15)] space-y-3 transition-colors">
               <h2 className="text-xs font-black uppercase tracking-wider text-zinc-400 px-1">
                 Categories
               </h2>
@@ -171,7 +183,7 @@ export default function CustomerMenuPage({
                   className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-2xl text-xs font-bold transition-all ${
                     selectedCategory === "all"
                       ? "bg-[#FF6B2C] text-white shadow-md shadow-[#FF6B2C]/30 font-extrabold"
-                      : "text-zinc-700 dark:text-zinc-300 hover:bg-black/5 dark:hover:bg-white/10"
+                      : "text-zinc-700 dark:text-zinc-300 hover:bg-white/60 dark:hover:bg-white/10"
                   }`}
                 >
                   <div className="flex items-center gap-2">
@@ -196,7 +208,7 @@ export default function CustomerMenuPage({
                       className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-2xl text-xs font-bold transition-all ${
                         isSelected
                           ? "bg-[#FF6B2C] text-white shadow-md shadow-[#FF6B2C]/30 font-extrabold"
-                          : "text-zinc-700 dark:text-zinc-300 hover:bg-black/5 dark:hover:bg-white/10"
+                          : "text-zinc-700 dark:text-zinc-300 hover:bg-white/60 dark:hover:bg-white/10"
                       }`}
                     >
                       <div className="flex items-center gap-2">
@@ -213,7 +225,7 @@ export default function CustomerMenuPage({
             </div>
 
             {/* Venue Info Glass Card on Desktop */}
-            <div className="bg-white/50 dark:bg-white/[0.05] backdrop-blur-xl rounded-3xl p-5 border border-white/60 dark:border-white/10 space-y-2.5 text-xs">
+            <div className="bg-white/50 dark:bg-white/[0.05] backdrop-blur-2xl rounded-3xl p-5 border border-white/80 dark:border-white/10 shadow-[0_8px_24px_rgba(0,0,0,0.03),inset_0_1px_1px_rgba(255,255,255,0.8)] dark:shadow-[0_15px_35px_rgba(0,0,0,0.4),inset_0_1px_1px_rgba(255,255,255,0.1)] space-y-2.5 text-xs transition-colors">
               <div className="flex items-center gap-2">
                 <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
                 <span className="font-extrabold text-[#121212] dark:text-white">The Cozy Cafe</span>
@@ -253,7 +265,7 @@ export default function CustomerMenuPage({
                   placeholder="Search dishes, ingredients..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full bg-white/80 dark:bg-white/[0.08] backdrop-blur-xl border border-zinc-200/80 dark:border-white/15 rounded-2xl pl-10 pr-10 py-3 text-xs sm:text-sm font-medium text-[#121212] dark:text-white placeholder-zinc-400 focus:outline-none focus:border-[#FF6B2C] focus:ring-2 focus:ring-[#FF6B2C]/20 shadow-xs transition-all"
+                  className="w-full bg-white/60 dark:bg-white/[0.08] backdrop-blur-2xl border border-white/80 dark:border-white/15 rounded-2xl pl-10 pr-10 py-3 text-xs sm:text-sm font-medium text-[#121212] dark:text-white placeholder-zinc-400 focus:outline-none focus:border-[#FF6B2C] focus:bg-white/90 dark:focus:bg-white/[0.12] shadow-[0_4px_16px_rgba(0,0,0,0.03),inset_0_1px_1px_rgba(255,255,255,0.8)] dark:shadow-[0_4px_16px_rgba(0,0,0,0.3),inset_0_1px_1px_rgba(255,255,255,0.1)] transition-all"
                 />
                 {searchQuery && (
                   <button
@@ -273,7 +285,7 @@ export default function CustomerMenuPage({
                 className={`px-4 py-2 rounded-full text-xs font-bold transition-all whitespace-nowrap shadow-xs backdrop-blur-md ${
                   selectedCategory === "all"
                     ? "bg-[#FF6B2C] text-white shadow-md shadow-[#FF6B2C]/25"
-                    : "bg-white/70 dark:bg-white/10 text-zinc-700 dark:text-zinc-300 hover:bg-white dark:hover:bg-white/20 border border-zinc-200/80 dark:border-white/10"
+                    : "bg-white/60 dark:bg-white/10 text-zinc-700 dark:text-zinc-300 hover:bg-white dark:hover:bg-white/20 border border-white/80 dark:border-white/10"
                 }`}
               >
                 ✨ All Items
@@ -285,7 +297,7 @@ export default function CustomerMenuPage({
                   className={`px-4 py-2 rounded-full text-xs font-bold transition-all whitespace-nowrap shadow-xs backdrop-blur-md flex items-center gap-1.5 ${
                     selectedCategory === cat.id
                       ? "bg-[#FF6B2C] text-white shadow-md shadow-[#FF6B2C]/25"
-                      : "bg-white/70 dark:bg-white/10 text-zinc-700 dark:text-zinc-300 hover:bg-white dark:hover:bg-white/20 border border-zinc-200/80 dark:border-white/10"
+                      : "bg-white/60 dark:bg-white/10 text-zinc-700 dark:text-zinc-300 hover:bg-white dark:hover:bg-white/20 border border-white/80 dark:border-white/10"
                   }`}
                 >
                   <span>{cat.icon}</span>
@@ -304,10 +316,10 @@ export default function CustomerMenuPage({
                       <div
                         key={cat.id}
                         onClick={() => setSelectedCategory(cat.id)}
-                        className="bg-white/75 dark:bg-white/[0.08] backdrop-blur-2xl rounded-3xl p-3 sm:p-4 border border-white/80 dark:border-white/15 shadow-[0_10px_25px_rgba(0,0,0,0.05)] dark:shadow-[0_15px_35px_rgba(0,0,0,0.3)] hover:shadow-2xl hover:-translate-y-1 transition-all cursor-pointer group flex flex-col items-center text-center gap-3 active:scale-98"
+                        className="bg-white/60 dark:bg-white/[0.07] backdrop-blur-2xl rounded-3xl p-3 sm:p-4 border border-white/80 dark:border-white/15 shadow-[0_10px_30px_rgba(0,0,0,0.05),inset_0_1px_1px_rgba(255,255,255,0.9)] dark:shadow-[0_20px_50px_rgba(0,0,0,0.4),inset_0_1px_1px_rgba(255,255,255,0.15)] hover:shadow-2xl hover:-translate-y-1 hover:border-[#FF6B2C]/60 hover:bg-white/80 dark:hover:bg-white/[0.12] transition-all cursor-pointer group flex flex-col items-center text-center gap-3 active:scale-98"
                       >
                         {/* Category Image */}
-                        <div className="relative w-full aspect-square max-h-32 sm:max-h-40 rounded-2xl overflow-hidden bg-zinc-100 dark:bg-zinc-800">
+                        <div className="relative w-full aspect-square max-h-32 sm:max-h-40 rounded-2xl overflow-hidden bg-zinc-100 dark:bg-zinc-800 shadow-inner">
                           {cat.imageUrl ? (
                             <Image
                               src={cat.imageUrl}
@@ -349,7 +361,7 @@ export default function CustomerMenuPage({
               </div>
 
               {filteredItems.length === 0 ? (
-                <div className="bg-white/70 dark:bg-white/[0.08] backdrop-blur-2xl rounded-3xl p-12 text-center text-zinc-500 dark:text-zinc-400 space-y-2 border border-white/80 dark:border-white/15 shadow-sm">
+                <div className="bg-white/60 dark:bg-white/[0.07] backdrop-blur-2xl rounded-3xl p-12 text-center text-zinc-500 dark:text-zinc-400 space-y-2 border border-white/80 dark:border-white/15 shadow-sm">
                   <span className="text-5xl block">🔍</span>
                   <p className="font-extrabold text-base text-[#121212] dark:text-white">No dishes found</p>
                   <p className="text-xs text-zinc-400">
@@ -366,11 +378,11 @@ export default function CustomerMenuPage({
                       <div
                         key={item.id}
                         onClick={() => setActiveItem(item)}
-                        className="bg-white/80 dark:bg-white/[0.08] backdrop-blur-2xl p-4 rounded-3xl border border-white/80 dark:border-white/15 shadow-[0_10px_25px_rgba(0,0,0,0.04)] dark:shadow-[0_15px_35px_rgba(0,0,0,0.3)] hover:shadow-2xl hover:-translate-y-0.5 transition-all flex flex-col justify-between gap-3 cursor-pointer group"
+                        className="bg-white/60 dark:bg-white/[0.07] backdrop-blur-2xl p-4 rounded-3xl border border-white/80 dark:border-white/15 shadow-[0_8px_25px_rgba(0,0,0,0.04),inset_0_1px_1px_rgba(255,255,255,0.9)] dark:shadow-[0_18px_45px_rgba(0,0,0,0.4),inset_0_1px_1px_rgba(255,255,255,0.15)] hover:shadow-2xl hover:-translate-y-0.5 hover:border-[#FF6B2C]/50 hover:bg-white/80 dark:hover:bg-white/[0.12] transition-all flex flex-col justify-between gap-3 cursor-pointer group"
                       >
                         <div className="flex items-start gap-3.5">
                           {/* Dish Image */}
-                          <div className="relative w-20 h-20 sm:w-24 sm:h-24 rounded-2xl overflow-hidden bg-zinc-100 dark:bg-zinc-800 flex-shrink-0">
+                          <div className="relative w-20 h-20 sm:w-24 sm:h-24 rounded-2xl overflow-hidden bg-zinc-100 dark:bg-zinc-800 flex-shrink-0 shadow-inner">
                             {item.imageUrl ? (
                               <Image
                                 src={item.imageUrl}
@@ -397,7 +409,7 @@ export default function CustomerMenuPage({
                         </div>
 
                         {/* Price & Action Row */}
-                        <div className="flex items-center justify-between pt-2 border-t border-zinc-100 dark:border-white/10">
+                        <div className="flex items-center justify-between pt-2 border-t border-zinc-200/50 dark:border-white/10">
                           <span className="font-black text-sm sm:text-base text-[#121212] dark:text-white">
                             {formatPrice(item.price)}
                           </span>
@@ -407,7 +419,7 @@ export default function CustomerMenuPage({
                             onClick={(e) => e.stopPropagation()}
                           >
                             {qtyInCart > 0 && cartItemId ? (
-                              <div className="flex items-center gap-2 bg-zinc-100 dark:bg-white/10 p-1 rounded-full border border-zinc-200 dark:border-white/15">
+                              <div className="flex items-center gap-2 bg-white/70 dark:bg-white/10 p-1 rounded-full border border-white/80 dark:border-white/15 shadow-2xs">
                                 <button
                                   onClick={() => updateQuantity(cartItemId, -1)}
                                   className="w-7 h-7 rounded-full bg-white dark:bg-zinc-800 text-zinc-800 dark:text-white font-bold flex items-center justify-center text-xs hover:bg-zinc-200 transition-colors shadow-2xs"
@@ -470,7 +482,7 @@ export default function CustomerMenuPage({
       )}
 
       {/* Fixed Bottom Navigation Bar (Visible on Mobile only - Frosted Glass) */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/85 dark:bg-black/75 backdrop-blur-2xl border-t border-zinc-200/80 dark:border-white/10 px-6 py-2.5 max-w-md mx-auto flex justify-around items-center shadow-2xl">
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/75 dark:bg-black/70 backdrop-blur-2xl border-t border-white/70 dark:border-white/10 px-6 py-2.5 max-w-md mx-auto flex justify-around items-center shadow-2xl">
         <button
           onClick={() => {
             setSelectedCategory("all");

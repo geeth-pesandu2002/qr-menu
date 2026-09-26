@@ -2,6 +2,7 @@
 
 import React, { use } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { useCart } from "@/src/context/CartContext";
 import { ThemeToggle } from "@/src/context/ThemeContext";
 
@@ -31,9 +32,19 @@ export default function OrderSuccessPage({
 
   return (
     <div className="min-h-screen bg-[#FAF7F2] dark:bg-[#0D0D0D] text-[#121212] dark:text-white flex flex-col justify-center items-center p-5 font-sans select-none relative overflow-hidden transition-colors duration-300">
-      {/* Ambient Glowing Orbs */}
-      <div className="absolute top-1/4 left-1/4 w-96 h-96 rounded-full bg-[#FF6B2C]/20 dark:bg-[#FF6B2C]/25 blur-[120px] pointer-events-none animate-pulse" />
-      <div className="absolute bottom-1/4 right-1/4 w-[400px] h-[400px] rounded-full bg-[#E7A451]/15 dark:bg-[#E7A451]/20 blur-[130px] pointer-events-none" />
+      {/* Ambient Cafe Photography & Glowing Lights fixed in background */}
+      <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden select-none">
+        <Image
+          src="/welcome-ambient-bg.jpg"
+          alt="Cafe Ambience"
+          fill
+          className="object-cover opacity-20 dark:opacity-30 filter blur-[1px] scale-105 transition-opacity duration-700"
+          priority
+        />
+        <div className="absolute top-1/4 left-1/4 w-96 h-96 rounded-full bg-[#FF6B2C]/25 dark:bg-[#FF6B2C]/30 blur-[130px] animate-pulse" />
+        <div className="absolute bottom-1/4 right-1/4 w-[400px] h-[400px] rounded-full bg-[#E7A451]/20 dark:bg-[#E7A451]/25 blur-[140px]" />
+        <div className="absolute inset-0 bg-[#FAF7F2]/75 dark:bg-[#0D0D0D]/85 backdrop-blur-[2px] transition-colors duration-500" />
+      </div>
 
       {/* Top Floating Theme Switcher */}
       <div className="absolute top-5 right-5 z-30">
@@ -49,7 +60,7 @@ export default function OrderSuccessPage({
       </div>
 
       {/* Frosted Glass Celebration Card */}
-      <div className="w-full max-w-md sm:max-w-lg bg-white/80 dark:bg-white/[0.08] backdrop-blur-2xl rounded-3xl p-7 sm:p-10 border border-white/80 dark:border-white/15 shadow-[0_25px_60px_rgba(0,0,0,0.1)] dark:shadow-[0_25px_60px_rgba(0,0,0,0.5)] flex flex-col items-center text-center space-y-6 animate-in zoom-in-95 duration-300 relative z-10">
+      <div className="w-full max-w-md sm:max-w-lg bg-white/65 dark:bg-white/[0.08] backdrop-blur-2xl rounded-3xl p-7 sm:p-10 border border-white/80 dark:border-white/15 shadow-[0_25px_60px_rgba(0,0,0,0.06),inset_0_1px_1px_rgba(255,255,255,0.9)] dark:shadow-[0_25px_60px_rgba(0,0,0,0.5),inset_0_1px_1px_rgba(255,255,255,0.15)] flex flex-col items-center text-center space-y-6 animate-in zoom-in-95 duration-300 relative z-10 transition-colors">
         {/* Large Orange Success Circle with Glowing Drop Shadow */}
         <div className="w-20 h-20 rounded-full bg-gradient-to-tr from-[#FF6B2C] to-[#FF854D] text-white flex items-center justify-center text-3xl font-black shadow-[0_0_35px_rgba(255,107,44,0.6)]">
           ✓

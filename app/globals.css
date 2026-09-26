@@ -1,5 +1,7 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 :root {
   --dinego-orange: #FF6B2C;
   --dinego-orange-hover: #E55A1F;
