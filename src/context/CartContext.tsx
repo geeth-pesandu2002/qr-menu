@@ -25,8 +25,9 @@ interface CartContextType {
   total: number;
   itemCount: number;
   orders: Order[];
-  placeOrder: () => Order;
+  placeOrder: () => Promise<Order>;
   getOrderById: (orderId: string) => Order | undefined;
+  refreshOrders: () => Promise<void>;
 }
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
@@ -75,7 +76,9 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const tableLbl = label || `Table ${id.padStart(2, "0")}`;
     setTableId(id);
     setTableLabel(tableLbl);
-    localStorage.setItem("dinego_table", JSON.stringify({ id, label: tableLbl }));
+    try {
+      localStorage.setItem("dinego_table", JSON.stringify({ id, label: tableLbl }));
+    } catch {}
   };
 
   const addToCart = (item: MenuItem, quantity: number, variant?: Variant, note: string = "") => {
@@ -132,46 +135,121 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const total = subtotal + serviceCharge;
   const itemCount = cart.reduce((acc, ci) => acc + ci.quantity, 0);
 
-  const placeOrder = (): Order => {
-    const orderId = (1020 + orders.length + 1).toString();
-    const newOrder: Order = {
-      id: orderId,
+  const refreshOrders = async () => {
+    try {
+      const sessionId = localStorage.getItem("dinego_session_id");
+      const url = sessionId
+        ? `/api/orders?sessionId=${encodeURIComponent(sessionId)}`
+        : `/api/orders?tableId=${encodeURIComponent(tableId)}`;
+      const res = await fetch(url);
+      if (res.ok) {
+        const json = await res.json();
+        if (json.success && Array.isArray(json.data) && json.data.length > 0) {
+          setOrders((prev) => {
+            const combined = [...json.data];
+            for (const o of prev) {
+              if (!combined.some((c) => c.id === o.id)) {
+                combined.push(o);
+              }
+            }
+            return combined;
+          });
+        }
+      }
+    } catch (e) {
+      console.warn("Could not refresh orders from API:", e);
+    }
+  };
+
+  const placeOrder = async (): Promise<Order> => {
+    let sessionId = "";
+    try {
+      sessionId = localStorage.getItem("dinego_session_id") || "";
+      if (!sessionId) {
+        sessionId = `sess_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+        localStorage.setItem("dinego_session_id", sessionId);
+      }
+    } catch {
+      sessionId = `sess_${Date.now()}`;
+    }
+
+    const payload = {
       tableId,
-      tableLabel,
-      sessionId: `session_${Date.now()}`,
-      status: "RECEIVED",
-      lines: cart.map((ci) => ({
-        id: ci.id,
+      sessionId,
+      serviceChargePercent: 5,
+      taxPercent: 10,
+      items: cart.map((ci) => ({
         itemId: ci.item.id,
         name: ci.item.name,
         variantLabel: ci.selectedVariant ? ci.selectedVariant.label : null,
         unitPrice: ci.selectedVariant ? ci.selectedVariant.price : ci.item.price,
         qty: ci.quantity,
-        note: ci.note,
-        imageUrl: ci.item.imageUrl,
+        note: ci.note || "",
+        imageUrl: ci.item.imageUrl || null,
       })),
-      subtotal,
-      serviceCharge,
-      total,
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
-      estimatedMinutes: 15,
     };
 
-    setOrders((prev) => [newOrder, ...prev]);
+    let createdOrder: Order;
 
-    // Also sync order to kitchen orders for live kitchen board integration
+    try {
+      const res = await fetch("/api/orders", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      if (res.ok) {
+        const json = await res.json();
+        if (json.success && json.data) {
+          createdOrder = json.data;
+        } else {
+          throw new Error("Invalid API response format");
+        }
+      } else {
+        throw new Error(`Order API responded with status ${res.status}`);
+      }
+    } catch (err) {
+      console.warn("API POST /api/orders failed, using client order backup:", err);
+      createdOrder = {
+        id: (1020 + orders.length + 1).toString(),
+        tableId,
+        tableLabel,
+        sessionId,
+        status: "RECEIVED",
+        lines: cart.map((ci) => ({
+          id: ci.id,
+          itemId: ci.item.id,
+          name: ci.item.name,
+          variantLabel: ci.selectedVariant ? ci.selectedVariant.label : null,
+          unitPrice: ci.selectedVariant ? ci.selectedVariant.price : ci.item.price,
+          qty: ci.quantity,
+          note: ci.note,
+          imageUrl: ci.item.imageUrl,
+          lineTotal: (ci.selectedVariant ? ci.selectedVariant.price : ci.item.price) * ci.quantity,
+        })),
+        subtotal,
+        serviceCharge,
+        tax: Math.round(subtotal * 0.1),
+        total,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+        estimatedMinutes: 15,
+      };
+    }
+
+    setOrders((prev) => [createdOrder, ...prev.filter((o) => o.id !== createdOrder.id)]);
+
     try {
       const savedKitchenOrders = localStorage.getItem("dinego_kitchen_orders");
       const kitchenList = savedKitchenOrders ? JSON.parse(savedKitchenOrders) : [];
       localStorage.setItem(
         "dinego_kitchen_orders",
-        JSON.stringify([{ ...newOrder, elapsedMinutes: 1 }, ...kitchenList])
+        JSON.stringify([{ ...createdOrder, elapsedMinutes: 1 }, ...kitchenList.filter((k: any) => k.id !== createdOrder.id)])
       );
     } catch {}
 
     clearCart();
-    return newOrder;
+    return createdOrder;
   };
 
   const getOrderById = (orderId: string) => orders.find((o) => o.id === orderId);
@@ -194,6 +272,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
         orders,
         placeOrder,
         getOrderById,
+        refreshOrders,
       }}
     >
       {children}

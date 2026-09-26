@@ -13,16 +13,23 @@ export default function ConfirmOrderPage() {
   const router = useRouter();
   const { cart, tableId, tableLabel, subtotal, serviceCharge, total, placeOrder } = useCart();
   const { addKitchenOrder } = useKitchen();
+  const [isPlacing, setIsPlacing] = React.useState(false);
 
-  const handleConfirmAndPlace = () => {
-    if (cart.length === 0) {
-      router.push(`/t/${tableId}`);
+  const handleConfirmAndPlace = async () => {
+    if (cart.length === 0 || isPlacing) {
+      if (cart.length === 0) router.push(`/t/${tableId}`);
       return;
     }
 
-    const order = placeOrder();
-    addKitchenOrder(order);
-    router.push(`/orders/success?orderId=${order.id}`);
+    setIsPlacing(true);
+    try {
+      const order = await placeOrder();
+      addKitchenOrder(order);
+      router.push(`/orders/success?orderId=${order.id}`);
+    } catch (e) {
+      console.error(e);
+      setIsPlacing(false);
+    }
   };
 
   return (
@@ -176,10 +183,20 @@ export default function ConfirmOrderPage() {
               <div className="space-y-3 pt-2">
                 <button
                   onClick={handleConfirmAndPlace}
-                  className="w-full py-4 rounded-full bg-gradient-to-r from-[#FF6B2C] to-[#E55A1F] hover:from-[#E55A1F] hover:to-[#FF6B2C] text-white font-black text-sm sm:text-base tracking-wide transition-all shadow-xl shadow-[#FF6B2C]/30 hover:shadow-[#FF6B2C]/50 flex items-center justify-center gap-2 active:scale-98"
+                  disabled={isPlacing}
+                  className="w-full py-4 rounded-full bg-gradient-to-r from-[#FF6B2C] to-[#E55A1F] hover:from-[#E55A1F] hover:to-[#FF6B2C] text-white font-black text-sm sm:text-base tracking-wide transition-all shadow-xl shadow-[#FF6B2C]/30 hover:shadow-[#FF6B2C]/50 flex items-center justify-center gap-2 active:scale-98 disabled:opacity-75 disabled:pointer-events-none"
                 >
-                  <span>Confirm & Place Order</span>
-                  <span>→</span>
+                  {isPlacing ? (
+                    <>
+                      <span className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin inline-block" />
+                      <span>Placing Order...</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>Confirm & Place Order</span>
+                      <span>→</span>
+                    </>
+                  )}
                 </button>
 
                 <Link

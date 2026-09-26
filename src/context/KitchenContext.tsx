@@ -146,6 +146,46 @@ export const KitchenProvider: React.FC<{ children: React.ReactNode }> = ({ child
     setIsLoaded(true);
   }, []);
 
+  // Poll backend /api/orders in real-time
+  useEffect(() => {
+    let isMounted = true;
+    const fetchApiOrders = async () => {
+      try {
+        const res = await fetch("/api/orders", {
+          headers: {
+            Authorization: "Bearer kitchen-demo",
+          },
+        });
+        if (res.ok) {
+          const json = await res.json();
+          if (json.success && Array.isArray(json.data) && json.data.length > 0 && isMounted) {
+            setKitchenOrders((prev) => {
+              const serverOrders: KitchenOrder[] = json.data.map((o: Order) => {
+                const existing = prev.find((p) => p.id === o.id);
+                return {
+                  ...o,
+                  elapsedMinutes:
+                    existing?.elapsedMinutes ??
+                    Math.max(1, Math.round((Date.now() - o.createdAt) / 60000)),
+                };
+              });
+              return serverOrders;
+            });
+          }
+        }
+      } catch (err) {
+        console.warn("Kitchen could not poll /api/orders:", err);
+      }
+    };
+
+    fetchApiOrders();
+    const interval = setInterval(fetchApiOrders, 4000);
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, []);
+
   // Sync changes to localStorage only after initial load
   useEffect(() => {
     if (!isLoaded) return;
@@ -168,13 +208,26 @@ export const KitchenProvider: React.FC<{ children: React.ReactNode }> = ({ child
     localStorage.removeItem("dinego_kitchen_auth");
   };
 
-  const updateOrderStatus = (orderId: string, newStatus: OrderStatus) => {
+  const updateOrderStatus = async (orderId: string, newStatus: OrderStatus) => {
     setKitchenOrders((prev) =>
       prev.map((o) => (o.id === orderId ? { ...o, status: newStatus, updatedAt: Date.now() } : o))
     );
 
     if (activeOrder && activeOrder.id === orderId) {
       setActiveOrder((prev) => (prev ? { ...prev, status: newStatus } : null));
+    }
+
+    try {
+      await fetch(`/api/orders/${orderId}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: "Bearer kitchen-demo",
+        },
+        body: JSON.stringify({ status: newStatus }),
+      });
+    } catch (err) {
+      console.warn("Could not patch order status to API:", err);
     }
   };
 

@@ -6,7 +6,7 @@ import Link from "next/link";
 import { useCart } from "@/src/context/CartContext";
 import { ThemeToggle } from "@/src/context/ThemeContext";
 import { mockCategories, mockMenuItems } from "@/src/mock/menuData";
-import { MenuItem, formatPrice } from "@/src/lib/types";
+import { Category, MenuItem, formatPrice } from "@/src/lib/types";
 import ItemModal from "@/src/components/diner/ItemModal";
 import CartDrawer from "@/src/components/diner/CartDrawer";
 
@@ -27,6 +27,46 @@ export default function CustomerMenuPage({
     }
   }, [tableId, setTable]);
 
+  const [categories, setCategories] = useState<Category[]>(mockCategories);
+  const [menuItems, setMenuItems] = useState<MenuItem[]>(mockMenuItems);
+  const [isLoadingMenu, setIsLoadingMenu] = useState<boolean>(false);
+
+  // Fetch real menu items and categories from backend API
+  React.useEffect(() => {
+    let isMounted = true;
+    async function loadMenuData() {
+      try {
+        setIsLoadingMenu(true);
+        const [catsRes, itemsRes] = await Promise.all([
+          fetch("/api/categories"),
+          fetch("/api/menu-items"),
+        ]);
+
+        if (catsRes.ok) {
+          const catsJson = await catsRes.json();
+          if (catsJson.success && Array.isArray(catsJson.data) && catsJson.data.length > 0 && isMounted) {
+            setCategories(catsJson.data);
+          }
+        }
+
+        if (itemsRes.ok) {
+          const itemsJson = await itemsRes.json();
+          if (itemsJson.success && Array.isArray(itemsJson.data) && itemsJson.data.length > 0 && isMounted) {
+            setMenuItems(itemsJson.data);
+          }
+        }
+      } catch (err) {
+        console.warn("Using offline menu fallback:", err);
+      } finally {
+        if (isMounted) setIsLoadingMenu(false);
+      }
+    }
+    loadMenuData();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [activeItem, setActiveItem] = useState<MenuItem | null>(null);
@@ -45,7 +85,7 @@ export default function CustomerMenuPage({
   };
 
   // Filtered menu items
-  const filteredItems = mockMenuItems.filter((item) => {
+  const filteredItems = menuItems.filter((item) => {
     const matchesCategory =
       selectedCategory === "all" || item.categoryId === selectedCategory;
     const matchesSearch =
@@ -54,7 +94,7 @@ export default function CustomerMenuPage({
     return matchesCategory && matchesSearch;
   });
 
-  const activeCategoryObj = mockCategories.find((c) => c.id === selectedCategory);
+  const activeCategoryObj = categories.find((c) => c.id === selectedCategory);
 
   return (
     <div className="min-h-screen bg-[#FAF7F2] dark:bg-[#0D0D0D] text-[#121212] dark:text-white flex flex-col font-sans pb-24 md:pb-12 select-none relative overflow-x-hidden transition-colors duration-300">
@@ -195,12 +235,12 @@ export default function CustomerMenuPage({
                     <span>All Dishes</span>
                   </div>
                   <span className={`text-[11px] ${selectedCategory === "all" ? "text-white/80" : "text-zinc-400"}`}>
-                    {mockMenuItems.length}
+                    {menuItems.length}
                   </span>
                 </button>
 
-                {mockCategories.map((cat) => {
-                  const count = mockMenuItems.filter((m) => m.categoryId === cat.id).length;
+                {categories.map((cat) => {
+                  const count = menuItems.filter((m) => m.categoryId === cat.id).length;
                   const isSelected = selectedCategory === cat.id;
                   return (
                     <button
@@ -294,7 +334,7 @@ export default function CustomerMenuPage({
               >
                 ✨ All Items
               </button>
-              {mockCategories.map((cat) => (
+              {categories.map((cat) => (
                 <button
                   key={cat.id}
                   onClick={() => setSelectedCategory(cat.id)}
@@ -314,8 +354,8 @@ export default function CustomerMenuPage({
             {selectedCategory === "all" && !searchQuery && (
               <div className="space-y-3">
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                  {mockCategories.map((cat) => {
-                    const count = mockMenuItems.filter((m) => m.categoryId === cat.id).length;
+                  {categories.map((cat) => {
+                    const count = menuItems.filter((m) => m.categoryId === cat.id).length;
                     return (
                       <div
                         key={cat.id}

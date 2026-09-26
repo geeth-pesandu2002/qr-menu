@@ -6,7 +6,7 @@ import Image from "next/image";
 import { useCart } from "@/src/context/CartContext";
 import { useKitchen } from "@/src/context/KitchenContext";
 import { ThemeToggle } from "@/src/context/ThemeContext";
-import { formatPrice } from "@/src/lib/types";
+import { Order, formatPrice } from "@/src/lib/types";
 
 export default function OrderStatusPage({
   params,
@@ -17,24 +17,51 @@ export default function OrderStatusPage({
   const orderId = resolvedParams.orderId;
   const { getOrderById, tableLabel, tableId } = useCart();
   const { kitchenOrders } = useKitchen();
+  const [apiOrder, setApiOrder] = React.useState<Order | null>(null);
 
-  // Find order in diner cart orders, or in kitchen orders for live status synchronization
+  // Poll live order status from backend API
+  React.useEffect(() => {
+    let isMounted = true;
+    const fetchLiveOrder = async () => {
+      try {
+        const res = await fetch(`/api/orders/${orderId}`);
+        if (res.ok) {
+          const json = await res.json();
+          if (json.success && json.data && isMounted) {
+            setApiOrder(json.data);
+          }
+        }
+      } catch (e) {
+        console.warn("Could not poll order status:", e);
+      }
+    };
+
+    fetchLiveOrder();
+    const interval = setInterval(fetchLiveOrder, 3000);
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, [orderId]);
+
+  // Find order in server API, diner cart orders, or in kitchen orders for live status synchronization
   const cartOrder = getOrderById(orderId);
   const kitchenOrder = kitchenOrders.find((o) => o.id === orderId);
+  const activeOrder = apiOrder || kitchenOrder || cartOrder;
 
-  const status = kitchenOrder ? kitchenOrder.status : cartOrder?.status || "PREPARING";
-  const displayTable = kitchenOrder?.tableLabel || cartOrder?.tableLabel || tableLabel || `Table ${tableId}`;
+  const status = activeOrder ? activeOrder.status : "PREPARING";
+  const displayTable = activeOrder?.tableLabel || tableLabel || `Table ${tableId}`;
 
   const isReceived = true;
   const isPreparing = status === "PREPARING" || status === "SERVED" || status === "COMPLETED";
   const isServed = status === "SERVED" || status === "COMPLETED";
 
-  const orderTimeStr = cartOrder
-    ? new Date(cartOrder.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+  const orderTimeStr = activeOrder
+    ? new Date(activeOrder.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
     : "1:25 PM";
 
-  const formattedDateStr = cartOrder
-    ? new Date(cartOrder.createdAt).toLocaleDateString("en-GB", {
+  const formattedDateStr = activeOrder
+    ? new Date(activeOrder.createdAt).toLocaleDateString("en-GB", {
         day: "2-digit",
         month: "short",
         year: "numeric",
@@ -212,14 +239,14 @@ export default function OrderStatusPage({
 
           {/* Right Column: Order Items Summary & Action Links */}
           <div className="lg:col-span-5 space-y-4 sticky top-24">
-            {cartOrder && (
+            {activeOrder && (
               <div className="bg-white/80 dark:bg-white/[0.07] backdrop-blur-2xl p-6 rounded-3xl border border-white/80 dark:border-white/10 shadow-lg shadow-black/5 dark:shadow-black/30 space-y-4 transition-colors">
                 <h3 className="text-xs font-black uppercase tracking-wider text-zinc-400 dark:text-zinc-400">
-                  Ordered Dishes ({cartOrder.lines.reduce((s, l) => s + l.qty, 0)})
+                  Ordered Dishes ({activeOrder.lines.reduce((s, l) => s + l.qty, 0)})
                 </h3>
 
                 <div className="space-y-3 divide-y divide-zinc-200/50 dark:divide-white/10">
-                  {cartOrder.lines.map((line, idx) => (
+                  {activeOrder.lines.map((line, idx) => (
                     <div key={idx} className="pt-3 first:pt-0 flex justify-between items-start text-xs sm:text-sm">
                       <div>
                         <p className="font-extrabold text-[#121212] dark:text-white">
@@ -242,7 +269,7 @@ export default function OrderStatusPage({
 
                   <div className="pt-3 flex justify-between font-black text-base text-[#121212] dark:text-white">
                     <span>Total Amount</span>
-                    <span className="text-[#FF6B2C]">{formatPrice(cartOrder.total)}</span>
+                    <span className="text-[#FF6B2C]">{formatPrice(activeOrder.total)}</span>
                   </div>
                 </div>
               </div>

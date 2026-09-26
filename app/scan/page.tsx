@@ -7,15 +7,38 @@ import Image from "next/image";
 import { useCart } from "@/src/context/CartContext";
 import { ThemeToggle } from "@/src/context/ThemeContext";
 import { mockTables } from "@/src/mock/menuData";
+import { Table } from "@/src/lib/types";
 
 export default function ScanPage() {
   const router = useRouter();
   const { setTable } = useCart();
   const [tableInput, setTableInput] = useState("05");
+  const [tables, setTables] = useState<Table[]>(mockTables);
   const [isScanning, setIsScanning] = useState(false);
   const [flashOn, setFlashOn] = useState(false);
   const [language, setLanguage] = useState("EN");
   const [showLangMenu, setShowLangMenu] = useState(false);
+
+  React.useEffect(() => {
+    let isMounted = true;
+    async function loadTables() {
+      try {
+        const res = await fetch("/api/tables");
+        if (res.ok) {
+          const json = await res.json();
+          if (json.success && Array.isArray(json.data) && json.data.length > 0 && isMounted) {
+            setTables(json.data);
+          }
+        }
+      } catch (e) {
+        console.warn("Using offline mock tables:", e);
+      }
+    }
+    loadTables();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const handleSimulateScan = (tableIdToScan: string = "05") => {
     setIsScanning(true);
@@ -191,7 +214,7 @@ export default function ScanPage() {
 
             {/* Quick Table Grid Picker */}
             <div className="grid grid-cols-4 gap-2.5">
-              {mockTables.map((t) => {
+              {tables.map((t) => {
                 const isSelected = tableInput === t.id;
                 return (
                   <button

@@ -63,9 +63,13 @@ const DEFAULT_HISTORY_ORDERS = [
 ];
 
 export default function OrderHistoryPage() {
-  const { orders, tableId, itemCount } = useCart();
+  const { orders, tableId, itemCount, refreshOrders } = useCart();
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
+
+  React.useEffect(() => {
+    refreshOrders();
+  }, [refreshOrders]);
 
   // Combine real diner placed orders with sample history orders
   const displayOrders = orders.length > 0

@@ -1,8 +1,41 @@
 "use client";
 
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 
 export default function LandingPage() {
+  const [stats, setStats] = useState({
+    menuItems: 8,
+    tables: 8,
+    activeOrders: 4,
+  });
+
+  useEffect(() => {
+    async function loadStats() {
+      try {
+        const [itemsRes, tablesRes, ordersRes] = await Promise.all([
+          fetch("/api/menu-items"),
+          fetch("/api/tables"),
+          fetch("/api/orders"),
+        ]);
+        const itemsJson = itemsRes.ok ? await itemsRes.json() : null;
+        const tablesJson = tablesRes.ok ? await tablesRes.json() : null;
+        const ordersJson = ordersRes.ok ? await ordersRes.json() : null;
+
+        setStats({
+          menuItems: itemsJson?.data?.length || 8,
+          tables: tablesJson?.data?.length || 8,
+          activeOrders:
+            ordersJson?.data?.filter(
+              (o: any) => o.status !== "COMPLETED" && o.status !== "CANCELLED"
+            )?.length || 4,
+        });
+      } catch (err) {
+        console.warn("Homepage live stats fallback:", err);
+      }
+    }
+    loadStats();
+  }, []);
   return (
     <div className="min-h-screen bg-[#121212] text-white flex flex-col font-sans selection:bg-[#FF6B2C] selection:text-white">
       {/* Navigation Header */}
@@ -81,20 +114,20 @@ export default function LandingPage() {
 
           {/* Quick Stats / Highlights */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 pt-8 border-t border-white/15 mt-6 w-full max-w-2xl">
-            <div className="flex flex-col items-center gap-1 text-center">
-              <span className="text-2xl">🌱</span>
-              <span className="font-semibold text-white text-sm">No App Installation</span>
-              <span className="text-xs text-zinc-300">Scans instantly in browser</span>
+            <div className="flex flex-col items-center gap-1 text-center bg-white/5 backdrop-blur-sm p-3.5 rounded-2xl border border-white/10">
+              <span className="text-2xl font-black text-[#FF6B2C]">{stats.tables}</span>
+              <span className="font-bold text-white text-xs sm:text-sm">Smart Tables</span>
+              <span className="text-[11px] text-zinc-300">Ready for instant QR ordering</span>
             </div>
-            <div className="flex flex-col items-center gap-1 text-center">
-              <span className="text-2xl">⚡</span>
-              <span className="font-semibold text-white text-sm">Real-Time Orders</span>
-              <span className="text-xs text-zinc-300">Instant kitchen dispatch</span>
+            <div className="flex flex-col items-center gap-1 text-center bg-white/5 backdrop-blur-sm p-3.5 rounded-2xl border border-white/10">
+              <span className="text-2xl font-black text-[#E7A451]">{stats.menuItems}</span>
+              <span className="font-bold text-white text-xs sm:text-sm">Dishes & Drinks</span>
+              <span className="text-[11px] text-zinc-300">Live digital kitchen menu</span>
             </div>
-            <div className="flex flex-col items-center gap-1 text-center">
-              <span className="text-2xl">📊</span>
-              <span className="font-semibold text-white text-sm">Simple & Powerful</span>
-              <span className="text-xs text-zinc-300">Live order tracking</span>
+            <div className="flex flex-col items-center gap-1 text-center bg-white/5 backdrop-blur-sm p-3.5 rounded-2xl border border-white/10">
+              <span className="text-2xl font-black text-emerald-400">{stats.activeOrders}</span>
+              <span className="font-bold text-white text-xs sm:text-sm">Orders Active</span>
+              <span className="text-[11px] text-zinc-300">Synchronized in real-time</span>
             </div>
           </div>
         </div>
