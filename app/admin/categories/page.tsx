@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { Category } from "@/src/lib/types";
 import CategoryModal from "@/src/components/admin/categories/CategoryModal";
@@ -87,6 +87,33 @@ export default function AdminCategoriesPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
   const [categoryToDelete, setCategoryToDelete] = useState<AdminCategoryItem | null>(null);
+
+  // Live category loading from backend
+  useEffect(() => {
+    let isMounted = true;
+    async function loadCategories() {
+      try {
+        const res = await fetch("/api/categories");
+        if (res.ok) {
+          const json = await res.json();
+          if (json.success && Array.isArray(json.data) && json.data.length > 0 && isMounted) {
+            setCategories(
+              json.data.map((c: Category) => ({
+                ...c,
+                itemsCount: 5,
+              }))
+            );
+          }
+        }
+      } catch (err) {
+        console.warn("Could not fetch live categories:", err);
+      }
+    }
+    loadCategories();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   // Summary Metrics
   const activeCount = categories.filter((c) => c.isActive).length;

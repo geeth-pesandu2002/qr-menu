@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import {
   DashboardStats,
@@ -169,7 +169,43 @@ const HOURLY_SALES_DATA = [
 ];
 
 export default function AdminDashboardPage() {
+  const [stats, setStats] = useState<DashboardStats>(MOCK_DASHBOARD_STATS);
+  const [recentOrders, setRecentOrders] = useState<Order[]>(MOCK_RECENT_ORDERS);
   const [selectedHourlyBar, setSelectedHourlyBar] = useState<number | null>(10); // Default 7 PM peak
+
+  useEffect(() => {
+    let isMounted = true;
+    async function loadDashboard() {
+      try {
+        const [statsRes, ordersRes] = await Promise.all([
+          fetch("/api/analytics/dashboard", {
+            headers: { Authorization: "Bearer owner-token" },
+          }),
+          fetch("/api/orders"),
+        ]);
+        if (statsRes.ok) {
+          const statsJson = await statsRes.json();
+          if (statsJson.success && statsJson.data && isMounted) {
+            setStats(statsJson.data);
+          }
+        }
+        if (ordersRes.ok) {
+          const ordersJson = await ordersRes.json();
+          if (ordersJson.success && Array.isArray(ordersJson.data) && ordersJson.data.length > 0 && isMounted) {
+            setRecentOrders(ordersJson.data.slice(0, 8));
+          }
+        }
+      } catch (err) {
+        console.warn("Could not load live analytics:", err);
+      }
+    }
+    loadDashboard();
+    const interval = setInterval(loadDashboard, 8000);
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, []);
 
   return (
     <div className="space-y-8 font-sans pb-12">
@@ -219,7 +255,7 @@ export default function AdminDashboardPage() {
         {/* 1. Total Orders */}
         <StatCard
           title="Total Orders"
-          value={MOCK_DASHBOARD_STATS.totalOrders}
+          value={stats.totalOrders}
           subtitle="All tickets today"
           icon="📦"
           accentColor="orange"
@@ -229,7 +265,7 @@ export default function AdminDashboardPage() {
         {/* 2. Total Revenue */}
         <StatCard
           title="Total Revenue"
-          value={formatPrice(MOCK_DASHBOARD_STATS.totalRevenue)}
+          value={formatPrice(stats.totalRevenue)}
           subtitle="Net sales (incl. tax)"
           icon="💰"
           accentColor="green"
@@ -239,7 +275,7 @@ export default function AdminDashboardPage() {
         {/* 3. Average Order Value */}
         <StatCard
           title="Average Order"
-          value={formatPrice(Math.round(MOCK_DASHBOARD_STATS.averageOrderValue))}
+          value={formatPrice(Math.round(stats.averageOrderValue || 0))}
           subtitle="Per customer ticket"
           icon="🏷️"
           accentColor="zinc"
@@ -249,7 +285,7 @@ export default function AdminDashboardPage() {
         {/* 4. Completed Orders */}
         <StatCard
           title="Completed"
-          value={MOCK_DASHBOARD_STATS.completedOrders}
+          value={stats.completedOrders}
           subtitle="Billed & closed"
           icon="✅"
           accentColor="gold"
@@ -259,11 +295,11 @@ export default function AdminDashboardPage() {
         {/* 5. Pending Orders */}
         <StatCard
           title="Pending Orders"
-          value={MOCK_DASHBOARD_STATS.pendingOrders}
+          value={stats.pendingOrders}
           subtitle="Active in kitchen"
           icon="⏳"
           accentColor="red"
-          trend={{ value: "4 New • 5 Prep", isPositive: false }}
+          trend={{ value: "Live active orders", isPositive: false }}
         />
       </div>
 
@@ -513,7 +549,7 @@ export default function AdminDashboardPage() {
                 Recent Active Orders
               </h3>
               <span className="bg-red-50 text-red-700 text-xs px-2.5 py-0.5 rounded-full font-bold border border-red-200">
-                {MOCK_RECENT_ORDERS.filter((o) => o.status === "RECEIVED").length} New
+                {recentOrders.filter((o) => o.status === "RECEIVED").length} New
               </span>
             </div>
             <p className="text-xs text-zinc-500 font-medium">
@@ -544,7 +580,7 @@ export default function AdminDashboardPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-100 font-medium text-zinc-700">
-              {MOCK_RECENT_ORDERS.map((order) => {
+              {recentOrders.map((order) => {
                 const elapsedMin = Math.round(
                   (Date.now() - order.createdAt) / (1000 * 60)
                 );

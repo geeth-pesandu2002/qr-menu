@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { Table } from "@/src/lib/types";
 import TableCard from "@/src/components/admin/tables/TableCard";
@@ -100,6 +100,28 @@ export default function AdminTablesPage() {
   const [editingTable, setEditingTable] = useState<Table | null>(null);
   const [qrModalTable, setQrModalTable] = useState<Table | null>(null);
   const [tableToDelete, setTableToDelete] = useState<Table | null>(null);
+
+  // Live tables loading from backend
+  useEffect(() => {
+    let isMounted = true;
+    async function loadTables() {
+      try {
+        const res = await fetch("/api/tables");
+        if (res.ok) {
+          const json = await res.json();
+          if (json.success && Array.isArray(json.data) && json.data.length > 0 && isMounted) {
+            setTables(json.data);
+          }
+        }
+      } catch (err) {
+        console.warn("Could not fetch live tables:", err);
+      }
+    }
+    loadTables();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   // Summary Metrics
   const totalTables = tables.length;

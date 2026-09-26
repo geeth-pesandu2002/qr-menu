@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { MenuItem, Category, formatPrice } from "@/src/lib/types";
 import { mockCategories, mockMenuItems } from "@/src/mock/menuData";
@@ -34,7 +34,7 @@ const INITIAL_ADMIN_MENU_ITEMS: MenuItem[] = [
 
 export default function AdminMenuPage() {
   const [items, setItems] = useState<MenuItem[]>(INITIAL_ADMIN_MENU_ITEMS);
-  const [categories] = useState<Category[]>(mockCategories);
+  const [categories, setCategories] = useState<Category[]>(mockCategories);
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [selectedCategory, setSelectedCategory] = useState<string>("ALL");
   const [selectedAvailability, setSelectedAvailability] = useState<
@@ -43,29 +43,88 @@ export default function AdminMenuPage() {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [itemToDelete, setItemToDelete] = useState<MenuItem | null>(null);
 
+  // Live menu data loading from backend
+  useEffect(() => {
+    let isMounted = true;
+    async function loadMenuData() {
+      try {
+        const [itemsRes, catRes] = await Promise.all([
+          fetch("/api/menu-items"),
+          fetch("/api/categories"),
+        ]);
+        if (itemsRes.ok) {
+          const itemsJson = await itemsRes.json();
+          if (itemsJson.success && Array.isArray(itemsJson.data) && itemsJson.data.length > 0 && isMounted) {
+            setItems(itemsJson.data);
+          }
+        }
+        if (catRes.ok) {
+          const catJson = await catRes.json();
+          if (catJson.success && Array.isArray(catJson.data) && catJson.data.length > 0 && isMounted) {
+            setCategories(catJson.data);
+          }
+        }
+      } catch (err) {
+        console.warn("Could not fetch live menu data for admin:", err);
+      }
+    }
+    loadMenuData();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
   // Compute summary stats
   const totalItems = items.length;
   const availableItems = items.filter((item) => item.isAvailable).length;
   const unavailableItems = items.filter((item) => !item.isAvailable).length;
   const totalCategories = categories.length;
 
-  // Toggle single item availability
-  const handleToggleAvailability = (itemId: string) => {
+  // Toggle single item availability with backend sync
+  const handleToggleAvailability = async (itemId: string) => {
+    let newAvail = true;
     setItems((prev) =>
-      prev.map((item) =>
-        item.id === itemId
-          ? { ...item, isAvailable: !item.isAvailable, updatedAt: Date.now() }
-          : item
-      )
+      prev.map((item) => {
+        if (item.id === itemId) {
+          newAvail = !item.isAvailable;
+          return { ...item, isAvailable: newAvail, updatedAt: Date.now() };
+        }
+        return item;
+      })
     );
+
+    try {
+      await fetch(`/api/menu-items/${itemId}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: "Bearer owner-token",
+        },
+        body: JSON.stringify({ isAvailable: newAvail }),
+      });
+    } catch (err) {
+      console.warn("Failed to update availability on server:", err);
+    }
   };
 
-  // Delete item handler (local mock state only)
-  const confirmDelete = () => {
+  // Delete item handler with backend sync
+  const confirmDelete = async () => {
     if (!itemToDelete) return;
-    setItems((prev) => prev.filter((i) => i.id !== itemToDelete.id));
-    setSelectedIds((prev) => prev.filter((id) => id !== itemToDelete.id));
+    const deletedId = itemToDelete.id;
+    setItems((prev) => prev.filter((i) => i.id !== deletedId));
+    setSelectedIds((prev) => prev.filter((id) => id !== deletedId));
     setItemToDelete(null);
+
+    try {
+      await fetch(`/api/menu-items/${deletedId}`, {
+        method: "DELETE",
+        headers: {
+          Authorization: "Bearer owner-token",
+        },
+      });
+    } catch (err) {
+      console.warn("Failed to delete menu item on server:", err);
+    }
   };
 
   // Checkbox handlers

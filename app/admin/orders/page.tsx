@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { Order, OrderStatus, formatPrice } from "@/src/lib/types";
 import OrderCard from "@/src/components/admin/orders/OrderCard";
@@ -160,8 +160,33 @@ export default function AdminOrdersPage() {
   const [activeTab, setActiveTab] = useState<FilterTab>("ALL");
   const [searchQuery, setSearchQuery] = useState<string>("");
 
-  // Status transition handler for mock UI state
-  const handleStatusTransition = (orderId: string, nextStatus: OrderStatus) => {
+  // Live order polling from backend
+  useEffect(() => {
+    let isMounted = true;
+    async function fetchOrders() {
+      try {
+        const res = await fetch("/api/orders");
+        if (res.ok) {
+          const json = await res.json();
+          if (json.success && Array.isArray(json.data) && json.data.length > 0 && isMounted) {
+            setOrders(json.data);
+          }
+        }
+      } catch (err) {
+        console.warn("Could not fetch live orders for admin:", err);
+      }
+    }
+
+    fetchOrders();
+    const interval = setInterval(fetchOrders, 4000);
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, []);
+
+  // Status transition handler with live backend sync
+  const handleStatusTransition = async (orderId: string, nextStatus: OrderStatus) => {
     setOrders((prev) =>
       prev.map((order) => {
         if (order.id === orderId) {
@@ -182,6 +207,19 @@ export default function AdminOrdersPage() {
         return order;
       })
     );
+
+    try {
+      await fetch(`/api/orders/${orderId}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: "Bearer owner-token",
+        },
+        body: JSON.stringify({ status: nextStatus }),
+      });
+    } catch (err) {
+      console.warn("Failed to persist order status transition:", err);
+    }
   };
 
   // Compute live counts
