@@ -38,8 +38,8 @@ const TITLE_MAP: Record<string, { title: string; subtitle: string }> = {
     subtitle: "Comprehensive revenue breakdown, order volume analytics, and top performing dishes",
   },
   "/admin/settings": {
-    title: "Restaurant Settings",
-    subtitle: "Tax rates, service charges, and venue details",
+    title: "System Settings",
+    subtitle: "Manage restaurant profile, ordering preferences, service charges, and account details",
   },
 };
 
