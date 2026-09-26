@@ -17,6 +17,7 @@ interface KitchenContextType {
   activeOrder: KitchenOrder | null;
   setActiveOrder: (order: KitchenOrder | null) => void;
   addKitchenOrder: (order: Order) => void;
+  refreshKitchenOrders: () => Promise<void>;
 }
 
 // Initial mock orders matching the Kitchen Staff UI screenshot (Tables 05, 03, 02, 07, 08, 06)
@@ -246,6 +247,35 @@ export const KitchenProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
   };
 
+  const refreshKitchenOrders = async () => {
+    try {
+      const res = await fetch("/api/orders", {
+        headers: {
+          Authorization: "Bearer kitchen-demo",
+        },
+      });
+      if (res.ok) {
+        const json = await res.json();
+        if (json.success && Array.isArray(json.data) && json.data.length > 0) {
+          setKitchenOrders((prev) => {
+            const serverOrders: KitchenOrder[] = json.data.map((o: Order) => {
+              const existing = prev.find((p) => p.id === o.id);
+              return {
+                ...o,
+                elapsedMinutes:
+                  existing?.elapsedMinutes ??
+                  Math.max(1, Math.round((Date.now() - o.createdAt) / 60000)),
+              };
+            });
+            return serverOrders;
+          });
+        }
+      }
+    } catch (err) {
+      console.warn("Kitchen refresh error:", err);
+    }
+  };
+
   const addKitchenOrder = (newOrder: Order) => {
     const kitchenItem: KitchenOrder = {
       ...newOrder,
@@ -266,6 +296,7 @@ export const KitchenProvider: React.FC<{ children: React.ReactNode }> = ({ child
         activeOrder,
         setActiveOrder,
         addKitchenOrder,
+        refreshKitchenOrders,
       }}
     >
       {children}

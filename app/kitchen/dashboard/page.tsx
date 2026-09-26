@@ -6,7 +6,14 @@ import { useKitchen, KitchenOrder } from "@/src/context/KitchenContext";
 
 export default function KitchenDashboardPage() {
   const router = useRouter();
-  const { kitchenOrders, updateOrderStatus, setActiveOrder } = useKitchen();
+  const { kitchenOrders, updateOrderStatus, setActiveOrder, refreshKitchenOrders } = useKitchen();
+  const [isRefreshing, setIsRefreshing] = React.useState(false);
+
+  const handleManualRefresh = async () => {
+    setIsRefreshing(true);
+    await refreshKitchenOrders();
+    setTimeout(() => setIsRefreshing(false), 500);
+  };
 
   const newOrders = kitchenOrders.filter((o) => o.status === "RECEIVED");
   const preparingOrders = kitchenOrders.filter((o) => o.status === "PREPARING");
@@ -20,6 +27,28 @@ export default function KitchenDashboardPage() {
 
   return (
     <div className="space-y-6 font-sans">
+      {/* Top Controls Bar */}
+      <div className="flex flex-wrap items-center justify-between gap-4 bg-white p-4 sm:p-5 rounded-2xl border border-zinc-200 shadow-xs">
+        <div>
+          <h2 className="text-lg font-black text-[#121212] flex items-center gap-2">
+            <span>Kitchen Order Management</span>
+            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+          </h2>
+          <p className="text-xs text-zinc-500 font-medium">
+            Live orders directly synced with diner table orders & backend API
+          </p>
+        </div>
+
+        <button
+          onClick={handleManualRefresh}
+          disabled={isRefreshing}
+          className="px-4 py-2 rounded-xl bg-zinc-100 hover:bg-zinc-200 text-zinc-800 text-xs font-bold transition-all flex items-center gap-2 active:scale-95 disabled:opacity-60"
+        >
+          <span className={isRefreshing ? "animate-spin" : ""}>🔄</span>
+          <span>{isRefreshing ? "Syncing..." : "Sync Orders"}</span>
+        </button>
+      </div>
+
       {/* Metrics Row */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="bg-white p-4 rounded-2xl border border-zinc-200 shadow-xs flex items-center justify-between">
