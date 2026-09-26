@@ -122,6 +122,10 @@ export default function CustomerMenuPage({
             <Link href="/scan" className="hover:text-[#FF6B2C] transition-colors">
               Switch Table
             </Link>
+            <Link href="/kitchen/dashboard" className="hover:text-[#FF6B2C] transition-colors flex items-center gap-1 text-zinc-500 hover:text-[#FF6B2C]">
+              <span>👨‍🍳</span>
+              <span>Kitchen</span>
+            </Link>
           </nav>
 
           {/* Right: Table Info (Mobile), ThemeToggle & Cart Button */}

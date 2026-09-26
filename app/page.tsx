@@ -26,6 +26,13 @@ export default function LandingPage() {
 
         <div className="flex items-center gap-3">
           <Link
+            href="/kitchen/login"
+            className="px-3.5 py-2 rounded-full bg-white/10 hover:bg-white/20 border border-white/15 text-white text-xs font-semibold transition-all flex items-center gap-1.5"
+          >
+            <span>👨‍🍳</span>
+            <span>Kitchen Staff</span>
+          </Link>
+          <Link
             href="/t/05"
             className="px-5 py-2.5 rounded-full bg-[#FF6B2C] hover:bg-[#E55A1F] text-white text-sm font-semibold transition-all transform hover:scale-105 shadow-md shadow-[#FF6B2C]/20"
           >

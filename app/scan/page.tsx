@@ -66,6 +66,14 @@ export default function ScanPage() {
         <div className="flex items-center gap-2.5 sm:gap-3">
           <ThemeToggle />
 
+          <Link
+            href="/kitchen/login"
+            className="hidden sm:inline-flex items-center gap-1.5 bg-white/60 dark:bg-white/10 hover:bg-white dark:hover:bg-white/20 text-[#121212] dark:text-zinc-200 border border-zinc-200/80 dark:border-white/15 px-3 py-1.5 rounded-full text-xs font-bold transition-all"
+          >
+            <span>👨‍🍳</span>
+            <span>Kitchen</span>
+          </Link>
+
           <button
             onClick={() => handleSimulateScan("05")}
             className="hidden sm:inline-flex items-center gap-2 bg-[#FF6B2C]/15 hover:bg-[#FF6B2C]/25 text-[#FF6B2C] border border-[#FF6B2C]/40 px-3.5 py-1.5 rounded-full text-xs font-black transition-all"
