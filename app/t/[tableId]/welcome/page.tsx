@@ -23,123 +23,184 @@ export default function TableWelcomePage({
   }, [tableId, setTable]);
 
   return (
-    <div className="min-h-screen bg-[#FAF7F2] text-[#121212] flex flex-col font-sans select-none">
-      {/* Responsive Top Header */}
-      <header className="px-4 sm:px-8 py-4 bg-white/80 backdrop-blur-md border-b border-zinc-200/80 sticky top-0 z-30">
-        <div className="max-w-6xl mx-auto flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-[#FF6B2C] flex items-center justify-center font-bold text-white shadow-md shadow-[#FF6B2C]/25 text-lg">
+    <div className="min-h-screen bg-[#121212] text-white flex flex-col font-sans select-none relative overflow-x-hidden">
+      {/* Background High-Resolution Cafe Ambience Image */}
+      <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden">
+        <Image
+          src="/welcome-ambient-bg.jpg"
+          alt="Cozy Cafe Ambience"
+          fill
+          className="object-cover object-center scale-105 filter brightness-75 contrast-105"
+          priority
+        />
+        {/* Cinematic Gradient Overlays */}
+        <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/40 to-black/80" />
+        <div className="absolute inset-0 bg-radial from-transparent via-black/30 to-black/70" />
+      </div>
+
+      {/* Floating Animated Light Glow Orbs */}
+      <div className="absolute top-1/6 left-1/10 w-96 h-96 rounded-full bg-[#FF6B2C]/25 blur-[120px] pointer-events-none animate-pulse" />
+      <div className="absolute bottom-1/6 right-1/10 w-[450px] h-[450px] rounded-full bg-[#E7A451]/20 blur-[140px] pointer-events-none animate-[pulse_5s_infinite]" />
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-80 h-80 rounded-full bg-amber-500/15 blur-[100px] pointer-events-none" />
+
+      {/* Responsive Floating Glass Header */}
+      <header className="relative z-30 px-4 sm:px-8 py-4 sm:py-5">
+        <div className="max-w-6xl mx-auto flex items-center justify-between bg-white/10 backdrop-blur-xl border border-white/20 px-5 sm:px-8 py-3 rounded-full shadow-2xl">
+          <Link href="/" className="flex items-center gap-2.5 group">
+            <div className="w-9 h-9 rounded-xl bg-[#FF6B2C] flex items-center justify-center font-bold text-white shadow-lg shadow-[#FF6B2C]/40 text-lg group-hover:scale-105 transition-transform">
               🍴
             </div>
-            <span className="text-xl font-black tracking-tight text-[#121212]">
+            <span className="text-xl font-black tracking-tight text-white drop-shadow-sm">
               Dine<span className="text-[#FF6B2C]">Go</span>
             </span>
           </Link>
 
           {/* Desktop Navigation Links */}
-          <div className="hidden md:flex items-center gap-6 text-xs font-bold text-zinc-600">
-            <Link href={`/t/${tableId}`} className="hover:text-[#FF6B2C] transition-colors">
-              Digital Menu
+          <div className="hidden md:flex items-center gap-6 text-xs font-extrabold text-zinc-200">
+            <Link
+              href={`/t/${tableId}`}
+              className="hover:text-[#FF6B2C] transition-colors flex items-center gap-1.5"
+            >
+              <span>📋</span>
+              <span>Digital Menu</span>
             </Link>
-            <Link href="/orders" className="hover:text-[#FF6B2C] transition-colors">
-              My Orders
+            <Link
+              href="/orders"
+              className="hover:text-[#FF6B2C] transition-colors flex items-center gap-1.5"
+            >
+              <span>📜</span>
+              <span>My Orders</span>
             </Link>
-            <span className="bg-zinc-100 text-zinc-800 px-3 py-1 rounded-full border border-zinc-200">
-              Table {tableId}
-            </span>
+            <div className="flex items-center gap-2 bg-white/15 px-3.5 py-1.5 rounded-full border border-white/20 text-white font-bold text-xs backdrop-blur-sm shadow-inner">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+              <span>Table {tableId}</span>
+            </div>
           </div>
 
-          <button
-            onClick={() => router.push(`/t/${tableId}`)}
-            className="w-10 h-10 rounded-full bg-white border border-zinc-200 shadow-xs flex items-center justify-center text-zinc-700 hover:bg-zinc-100 transition-all text-xl md:hidden"
-          >
-            ≡
-          </button>
+          {/* Mobile Table Badge */}
+          <div className="md:hidden flex items-center gap-2 bg-white/15 px-3 py-1 rounded-full border border-white/20 text-white font-bold text-xs">
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+            <span>Table {tableId}</span>
+          </div>
         </div>
       </header>
 
       {/* Main Container - 1 Column on Mobile, 2 Columns on Desktop */}
-      <main className="flex-1 max-w-6xl mx-auto w-full px-4 sm:px-8 py-6 sm:py-12 flex flex-col justify-center">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 lg:gap-12 items-center">
-          {/* Cafe Table Photo */}
-          <div className="relative w-full aspect-[4/3] rounded-3xl overflow-hidden shadow-2xl border border-black/5 group">
-            <Image
-              src="/table-05-welcome.jpg"
-              alt={`Table ${tableId}`}
-              fill
-              className="object-cover group-hover:scale-102 transition-transform duration-500"
-              priority
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent" />
-            <div className="absolute top-4 left-4 bg-white/90 backdrop-blur-md px-3.5 py-1.5 rounded-full text-xs font-black text-[#121212] shadow-sm flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-              <span>Table {tableId} Confirmed</span>
+      <main className="relative z-20 flex-1 max-w-6xl mx-auto w-full px-4 sm:px-8 py-6 sm:py-10 flex flex-col justify-center">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center">
+          {/* Left Column: Cafe Table Photo with Radiant Glow */}
+          <div className="lg:col-span-6 relative">
+            {/* Radiant Gradient Glow Behind Photo Frame */}
+            <div className="absolute -inset-3 sm:-inset-4 bg-gradient-to-tr from-[#FF6B2C]/50 via-[#E7A451]/40 to-[#FF6B2C]/30 rounded-[40px] blur-2xl opacity-75 animate-pulse" />
+
+            <div className="relative w-full aspect-[4/3] rounded-[32px] overflow-hidden shadow-[0_25px_60px_rgba(0,0,0,0.5)] border-2 border-white/30 group">
+              <Image
+                src="/table-05-welcome.jpg"
+                alt={`Table ${tableId}`}
+                fill
+                className="object-cover group-hover:scale-104 transition-transform duration-700 ease-out"
+                priority
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/20" />
+
+              {/* Floating Verified Glass Badge */}
+              <div className="absolute top-4 left-4 bg-black/60 backdrop-blur-md px-4 py-2 rounded-full text-xs font-black text-white border border-white/25 shadow-lg flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
+                <span>Table {tableId} Active</span>
+              </div>
+
+              {/* Bottom Subtle Overlay Tag */}
+              <div className="absolute bottom-4 left-4 right-4 flex items-center justify-between text-xs text-white/90 backdrop-blur-md bg-black/40 px-4 py-2.5 rounded-2xl border border-white/15">
+                <span className="font-bold flex items-center gap-1.5">
+                  <span>☕</span> Fresh Brews & Artisan Bites
+                </span>
+                <span className="text-[11px] font-semibold text-amber-300">
+                  Ready to Order
+                </span>
+              </div>
             </div>
           </div>
 
-          {/* Welcome Card & Action Box */}
-          <div className="bg-white rounded-3xl p-6 sm:p-10 border border-zinc-200/90 shadow-xl space-y-6">
-            <div className="space-y-2">
-              <div className="inline-flex items-center gap-2 bg-[#FF6B2C]/10 text-[#FF6B2C] px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider">
-                <span>✨</span> Welcome to
-              </div>
-              <h1 className="text-3xl sm:text-4xl font-black text-[#121212] tracking-tight">
-                The Cozy Cafe
-              </h1>
-              <p className="text-sm font-semibold text-zinc-500">
-                Good Food. Good People. Delicious moments await your table.
-              </p>
-            </div>
+          {/* Right Column: Glassmorphic Welcome Card */}
+          <div className="lg:col-span-6">
+            <div className="bg-white/95 backdrop-blur-2xl rounded-[36px] p-6 sm:p-10 border border-white/80 shadow-[0_25px_70px_rgba(0,0,0,0.45)] text-[#121212] space-y-6 relative overflow-hidden">
+              {/* Subtle Decorative Golden Gradient Flare */}
+              <div className="absolute -top-24 -right-24 w-48 h-48 bg-gradient-to-br from-[#FF6B2C]/20 to-[#E7A451]/20 rounded-full blur-2xl pointer-events-none" />
 
-            {/* Verification Badge */}
-            <div className="bg-[#FAF7F2] p-4 rounded-2xl border border-zinc-200/80 flex items-center gap-3.5">
-              <div className="w-10 h-10 rounded-full bg-[#06402B] text-white flex items-center justify-center text-sm font-bold shadow-md shadow-emerald-900/20 flex-shrink-0">
-                ✓
-              </div>
-              <div>
-                <span className="font-black text-lg text-[#121212] block leading-none">
-                  Table {tableId}
-                </span>
-                <span className="text-xs font-semibold text-zinc-500">
-                  You&apos;re all set! Browse the contactless menu and order right from your seat.
-                </span>
-              </div>
-            </div>
+              {/* Headline Block */}
+              <div className="space-y-2 relative">
+                <div className="inline-flex items-center gap-2 bg-[#FF6B2C]/10 text-[#FF6B2C] border border-[#FF6B2C]/20 px-3.5 py-1.5 rounded-full text-xs font-black uppercase tracking-wider shadow-xs">
+                  <span>✨</span>
+                  <span>Welcome to</span>
+                </div>
 
-            {/* Feature Highlights on Desktop */}
-            <div className="hidden sm:grid grid-cols-2 gap-3 text-xs text-zinc-600 font-semibold pt-1">
-              <div className="flex items-center gap-2">
-                <span>⚡</span>
-                <span>Fast Kitchen Dispatch</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span>📱</span>
-                <span>Live Order Status</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span>💳</span>
-                <span>Instant Digital Bill</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span>📶</span>
-                <span>Free High-Speed WiFi</span>
-              </div>
-            </div>
+                <h1 className="text-3xl sm:text-4xl lg:text-5xl font-black text-[#121212] tracking-tight leading-tight">
+                  The Cozy Cafe
+                </h1>
 
-            {/* Action Buttons */}
-            <div className="space-y-3 pt-2">
-              <Link
-                href={`/t/${tableId}`}
-                className="w-full py-4 rounded-full bg-[#FF6B2C] hover:bg-[#E55A1F] text-white font-extrabold text-sm sm:text-base tracking-wide transition-all shadow-xl shadow-[#FF6B2C]/30 flex items-center justify-center gap-2 active:scale-98"
-              >
-                <span>View Menu</span>
-                <span className="text-lg">→</span>
-              </Link>
-
-              <div className="text-center pt-2">
-                <p className="font-serif italic text-2xl text-[#121212]/75">
-                  Enjoy your meal!
+                <p className="text-sm font-bold text-zinc-500 leading-relaxed">
+                  Good Food. Good People. Delicious moments crafted fresh for your table.
                 </p>
+              </div>
+
+              {/* Verification & Table Status Box */}
+              <div className="bg-[#FAF7F2] p-4 sm:p-5 rounded-3xl border border-amber-200/60 shadow-xs flex items-center gap-4">
+                <div className="w-12 h-12 rounded-2xl bg-[#06402B] text-white flex items-center justify-center text-lg font-black shadow-lg shadow-emerald-950/20 flex-shrink-0">
+                  ✓
+                </div>
+                <div className="space-y-0.5">
+                  <span className="font-black text-lg text-[#121212] block leading-tight">
+                    Table {tableId} Identified
+                  </span>
+                  <p className="text-xs text-zinc-500 font-semibold leading-relaxed">
+                    You&apos;re all set! Browse dishes, customize your flavors, and place orders directly to our kitchen.
+                  </p>
+                </div>
+              </div>
+
+              {/* 4 Feature Highlights Grid */}
+              <div className="grid grid-cols-2 gap-3 pt-1">
+                <div className="bg-zinc-50 hover:bg-zinc-100/80 p-3 rounded-2xl border border-zinc-200/70 transition-colors flex items-center gap-2.5 text-xs font-extrabold text-zinc-700">
+                  <span className="text-base text-amber-500">⚡</span>
+                  <span>Fast Kitchen Dispatch</span>
+                </div>
+
+                <div className="bg-zinc-50 hover:bg-zinc-100/80 p-3 rounded-2xl border border-zinc-200/70 transition-colors flex items-center gap-2.5 text-xs font-extrabold text-zinc-700">
+                  <span className="text-base text-indigo-500">📱</span>
+                  <span>Live Order Tracking</span>
+                </div>
+
+                <div className="bg-zinc-50 hover:bg-zinc-100/80 p-3 rounded-2xl border border-zinc-200/70 transition-colors flex items-center gap-2.5 text-xs font-extrabold text-zinc-700">
+                  <span className="text-base text-emerald-500">💳</span>
+                  <span>Instant Digital Bill</span>
+                </div>
+
+                <div className="bg-zinc-50 hover:bg-zinc-100/80 p-3 rounded-2xl border border-zinc-200/70 transition-colors flex items-center gap-2.5 text-xs font-extrabold text-zinc-700">
+                  <span className="text-base text-blue-500">📶</span>
+                  <span>Free High-Speed WiFi</span>
+                </div>
+              </div>
+
+              {/* Glowing CTA Button */}
+              <div className="space-y-3 pt-2">
+                <Link
+                  href={`/t/${tableId}`}
+                  className="w-full py-4 sm:py-4.5 px-6 rounded-full bg-gradient-to-r from-[#FF6B2C] via-[#FF7B42] to-[#E55A1F] hover:from-[#E55A1F] hover:to-[#FF6B2C] text-white font-black text-base tracking-wide transition-all shadow-[0_12px_35px_rgba(255,107,44,0.4)] hover:shadow-[0_16px_45px_rgba(255,107,44,0.55)] flex items-center justify-center gap-3 transform hover:-translate-y-0.5 active:translate-y-0 relative overflow-hidden group"
+                >
+                  {/* Interactive Shimmer Sheen */}
+                  <span className="absolute inset-0 w-1/2 h-full bg-white/25 skew-x-[-25deg] -translate-x-full group-hover:translate-x-[350%] transition-transform duration-1000 ease-in-out" />
+                  <span className="relative z-10">View Menu</span>
+                  <span className="relative z-10 text-xl font-bold group-hover:translate-x-1.5 transition-transform duration-200">
+                    →
+                  </span>
+                </Link>
+
+                {/* Elegant Cursive Script with Drop Shadow */}
+                <div className="text-center pt-2">
+                  <p className="font-serif italic text-3xl sm:text-4xl text-[#121212]/80 drop-shadow-xs">
+                    Enjoy your meal!
+                  </p>
+                </div>
               </div>
             </div>
           </div>
@@ -147,7 +208,7 @@ export default function TableWelcomePage({
       </main>
 
       {/* Footer Branding */}
-      <footer className="text-center text-xs text-zinc-400 py-4 border-t border-zinc-200/50">
+      <footer className="relative z-20 text-center text-xs text-zinc-400/80 py-4 border-t border-white/10 backdrop-blur-md">
         DineGo Digital QR Menu &bull; The Cozy Cafe
       </footer>
     </div>
