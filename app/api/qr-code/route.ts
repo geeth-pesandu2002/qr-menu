@@ -43,7 +43,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Generate QR code as data URL
-    const dataUrl = await QRCode.toDataURL(table.qrUrl);
+    const dataUrl = await QRCode.toDataURL(table.qrUrl || "");
 
     return NextResponse.json(
       {
