@@ -4,7 +4,6 @@ import React, { useState, use } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useCart } from "@/src/context/CartContext";
-import { ThemeToggle } from "@/src/context/ThemeContext";
 import { mockCategories, mockMenuItems } from "@/src/mock/menuData";
 import { Category, MenuItem, formatPrice } from "@/src/lib/types";
 import ItemModal from "@/src/components/diner/ItemModal";
@@ -168,11 +167,8 @@ export default function CustomerMenuPage({
             </Link>
           </nav>
 
-          {/* Right: Table Info (Mobile), ThemeToggle & Cart Button */}
+          {/* Right: Table Info (Mobile) & Cart Button */}
           <div className="flex items-center gap-2.5 sm:gap-3">
-            {/* Global Theme Toggle Button */}
-            <ThemeToggle />
-
             <span className="sm:hidden text-xs bg-white/60 dark:bg-white/10 text-zinc-700 dark:text-zinc-300 font-extrabold px-2.5 py-1 rounded-full border border-white/80 dark:border-white/10">
               {tableLabel}
             </span>
