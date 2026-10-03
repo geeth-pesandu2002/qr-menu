@@ -5,36 +5,11 @@ import Link from "next/link";
 import { MenuItem, Category, formatPrice } from "@/src/lib/types";
 import { mockCategories, mockMenuItems } from "@/src/mock/menuData";
 
-// Initial mock items list with a couple of unavailable items for realistic demo
-const INITIAL_ADMIN_MENU_ITEMS: MenuItem[] = [
-  ...mockMenuItems,
-  {
-    id: "d3",
-    name: "Fresh Strawberry Shake",
-    description: "Seasonal fresh strawberries blended with chilled fresh milk",
-    price: 850,
-    categoryId: "drinks",
-    imageUrl: "https://images.unsplash.com/photo-1553530666-ba11a7da3888?w=600&auto=format&fit=crop&q=80",
-    isAvailable: false, // Unavailable demonstration
-    sortOrder: 8,
-    variants: [],
-  },
-  {
-    id: "des2",
-    name: "Classic Tiramisu",
-    description: "Traditional Italian dessert with mascarpone and espresso soaked biscuits",
-    price: 950,
-    categoryId: "desserts",
-    imageUrl: "https://images.unsplash.com/photo-1571877227200-a0d98ea607e9?w=600&auto=format&fit=crop&q=80",
-    isAvailable: false, // Unavailable demonstration
-    sortOrder: 9,
-    variants: [],
-  },
-];
+const INITIAL_ADMIN_MENU_ITEMS: MenuItem[] = [];
 
 export default function AdminMenuPage() {
   const [items, setItems] = useState<MenuItem[]>(INITIAL_ADMIN_MENU_ITEMS);
-  const [categories, setCategories] = useState<Category[]>(mockCategories);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [selectedCategory, setSelectedCategory] = useState<string>("ALL");
   const [selectedAvailability, setSelectedAvailability] = useState<
@@ -54,13 +29,13 @@ export default function AdminMenuPage() {
         ]);
         if (itemsRes.ok) {
           const itemsJson = await itemsRes.json();
-          if (itemsJson.success && Array.isArray(itemsJson.data) && itemsJson.data.length > 0 && isMounted) {
+          if (itemsJson.success && Array.isArray(itemsJson.data) && isMounted) {
             setItems(itemsJson.data);
           }
         }
         if (catRes.ok) {
           const catJson = await catRes.json();
-          if (catJson.success && Array.isArray(catJson.data) && catJson.data.length > 0 && isMounted) {
+          if (catJson.success && Array.isArray(catJson.data) && isMounted) {
             setCategories(catJson.data);
           }
         }

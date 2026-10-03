@@ -144,7 +144,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const res = await fetch(url);
       if (res.ok) {
         const json = await res.json();
-        if (json.success && Array.isArray(json.data) && json.data.length > 0) {
+        if (json.success && Array.isArray(json.data)) {
           setOrders((prev) => {
             const combined = [...json.data];
             for (const o of prev) {

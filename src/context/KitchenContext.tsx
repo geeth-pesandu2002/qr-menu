@@ -159,7 +159,7 @@ export const KitchenProvider: React.FC<{ children: React.ReactNode }> = ({ child
         });
         if (res.ok) {
           const json = await res.json();
-          if (json.success && Array.isArray(json.data) && json.data.length > 0 && isMounted) {
+          if (json.success && Array.isArray(json.data) && isMounted) {
             setKitchenOrders((prev) => {
               const serverOrders: KitchenOrder[] = json.data.map((o: Order) => {
                 const existing = prev.find((p) => p.id === o.id);
@@ -256,7 +256,7 @@ export const KitchenProvider: React.FC<{ children: React.ReactNode }> = ({ child
       });
       if (res.ok) {
         const json = await res.json();
-        if (json.success && Array.isArray(json.data) && json.data.length > 0) {
+        if (json.success && Array.isArray(json.data)) {
           setKitchenOrders((prev) => {
             const serverOrders: KitchenOrder[] = json.data.map((o: Order) => {
               const existing = prev.find((p) => p.id === o.id);

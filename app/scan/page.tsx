@@ -26,7 +26,7 @@ export default function ScanPage() {
         const res = await fetch("/api/tables");
         if (res.ok) {
           const json = await res.json();
-          if (json.success && Array.isArray(json.data) && json.data.length > 0 && isMounted) {
+          if (json.success && Array.isArray(json.data) && isMounted) {
             setTables(json.data);
           }
         }

@@ -27,8 +27,8 @@ export default function CustomerMenuPage({
     }
   }, [tableId, setTable]);
 
-  const [categories, setCategories] = useState<Category[]>(mockCategories);
-  const [menuItems, setMenuItems] = useState<MenuItem[]>(mockMenuItems);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
   const [isLoadingMenu, setIsLoadingMenu] = useState<boolean>(false);
 
   // Fetch real menu items and categories from backend API
@@ -44,14 +44,14 @@ export default function CustomerMenuPage({
 
         if (catsRes.ok) {
           const catsJson = await catsRes.json();
-          if (catsJson.success && Array.isArray(catsJson.data) && catsJson.data.length > 0 && isMounted) {
+          if (catsJson.success && Array.isArray(catsJson.data) && isMounted) {
             setCategories(catsJson.data);
           }
         }
 
         if (itemsRes.ok) {
           const itemsJson = await itemsRes.json();
-          if (itemsJson.success && Array.isArray(itemsJson.data) && itemsJson.data.length > 0 && isMounted) {
+          if (itemsJson.success && Array.isArray(itemsJson.data) && isMounted) {
             setMenuItems(itemsJson.data);
           }
         }

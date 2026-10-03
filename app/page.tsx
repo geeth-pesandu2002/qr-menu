@@ -23,12 +23,13 @@ export default function LandingPage() {
         const ordersJson = ordersRes.ok ? await ordersRes.json() : null;
 
         setStats({
-          menuItems: itemsJson?.data?.length || 8,
-          tables: tablesJson?.data?.length || 8,
-          activeOrders:
-            ordersJson?.data?.filter(
-              (o: any) => o.status !== "COMPLETED" && o.status !== "CANCELLED"
-            )?.length || 4,
+          menuItems: Array.isArray(itemsJson?.data) ? itemsJson.data.length : 0,
+          tables: Array.isArray(tablesJson?.data) ? tablesJson.data.length : 8,
+          activeOrders: Array.isArray(ordersJson?.data)
+            ? ordersJson.data.filter(
+                (o: any) => o.status !== "COMPLETED" && o.status !== "CANCELLED"
+              ).length
+            : 0,
         });
       } catch (err) {
         console.warn("Homepage live stats fallback:", err);

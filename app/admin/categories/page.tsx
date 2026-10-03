@@ -9,74 +9,7 @@ interface AdminCategoryItem extends Category {
   itemsCount: number;
 }
 
-const INITIAL_MOCK_CATEGORIES: AdminCategoryItem[] = [
-  {
-    id: "burgers",
-    name: "Burgers",
-    icon: "🍔",
-    sortOrder: 1,
-    isActive: true,
-    itemsCount: 6,
-    imageUrl: "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=400&auto=format&fit=crop&q=80",
-    createdAt: Date.now() - 1000 * 60 * 60 * 24 * 30,
-    updatedAt: Date.now() - 1000 * 60 * 60 * 24 * 5,
-  },
-  {
-    id: "pizza",
-    name: "Artisan Pizzas",
-    icon: "🍕",
-    sortOrder: 2,
-    isActive: true,
-    itemsCount: 5,
-    imageUrl: "https://images.unsplash.com/photo-1604382354936-07c5d9983bd3?w=400&auto=format&fit=crop&q=80",
-    createdAt: Date.now() - 1000 * 60 * 60 * 24 * 28,
-    updatedAt: Date.now() - 1000 * 60 * 60 * 24 * 4,
-  },
-  {
-    id: "pasta",
-    name: "Italian Pastas",
-    icon: "🍝",
-    sortOrder: 3,
-    isActive: true,
-    itemsCount: 4,
-    imageUrl: "https://images.unsplash.com/photo-1551183053-bf91a1d81141?w=400&auto=format&fit=crop&q=80",
-    createdAt: Date.now() - 1000 * 60 * 60 * 24 * 25,
-    updatedAt: Date.now() - 1000 * 60 * 60 * 24 * 3,
-  },
-  {
-    id: "drinks",
-    name: "Cold & Hot Beverages",
-    icon: "🥤",
-    sortOrder: 4,
-    isActive: true,
-    itemsCount: 4,
-    imageUrl: "https://images.unsplash.com/photo-1517701604599-bb29b565090c?w=400&auto=format&fit=crop&q=80",
-    createdAt: Date.now() - 1000 * 60 * 60 * 24 * 20,
-    updatedAt: Date.now() - 1000 * 60 * 60 * 24 * 2,
-  },
-  {
-    id: "desserts",
-    name: "Gourmet Desserts",
-    icon: "🍰",
-    sortOrder: 5,
-    isActive: true,
-    itemsCount: 3,
-    imageUrl: "https://images.unsplash.com/photo-1571877227200-a0d98ea607e9?w=400&auto=format&fit=crop&q=80",
-    createdAt: Date.now() - 1000 * 60 * 60 * 24 * 18,
-    updatedAt: Date.now() - 1000 * 60 * 60 * 24 * 1,
-  },
-  {
-    id: "specials",
-    name: "Seasonal Specials",
-    icon: "✨",
-    sortOrder: 6,
-    isActive: false, // Inactive category demonstration
-    itemsCount: 2,
-    imageUrl: null,
-    createdAt: Date.now() - 1000 * 60 * 60 * 24 * 10,
-    updatedAt: Date.now() - 1000 * 60 * 60 * 12,
-  },
-];
+const INITIAL_MOCK_CATEGORIES: AdminCategoryItem[] = [];
 
 export default function AdminCategoriesPage() {
   const [categories, setCategories] = useState<AdminCategoryItem[]>(INITIAL_MOCK_CATEGORIES);
@@ -96,11 +29,11 @@ export default function AdminCategoriesPage() {
         const res = await fetch("/api/categories");
         if (res.ok) {
           const json = await res.json();
-          if (json.success && Array.isArray(json.data) && json.data.length > 0 && isMounted) {
+          if (json.success && Array.isArray(json.data) && isMounted) {
             setCategories(
               json.data.map((c: Category) => ({
                 ...c,
-                itemsCount: 5,
+                itemsCount: (c as AdminCategoryItem).itemsCount ?? 0,
               }))
             );
           }
