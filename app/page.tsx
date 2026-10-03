@@ -66,12 +66,6 @@ export default function LandingPage() {
             <span>👨‍🍳</span>
             <span>Kitchen Staff</span>
           </Link>
-          <Link
-            href="/t/05"
-            className="px-5 py-2.5 rounded-full bg-[#FF6B2C] hover:bg-[#E55A1F] text-white text-sm font-semibold transition-all transform hover:scale-105 shadow-md shadow-[#FF6B2C]/20"
-          >
-            Get Started
-          </Link>
         </div>
       </header>
 
