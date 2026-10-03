@@ -1,4 +1,4 @@
-import { Category, MenuItem } from "./types";
+import { Category, MenuItem, Table, Order } from "./types";
 
 export interface ApiResponse<T> {
   success: boolean;
@@ -154,4 +154,42 @@ export async function getMenuItems(): Promise<MenuItem[]> {
       };
     })
     .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+}
+
+/**
+ * Payload items for placing an order.
+ */
+export interface CreateOrderItem {
+  itemId: string;
+  qty: number;
+  variantLabel?: string;
+  note?: string;
+}
+
+/**
+ * Payload body required by POST /orders.
+ */
+export interface CreateOrderPayload {
+  qrToken: string;
+  items: CreateOrderItem[];
+  sessionId?: string;
+  serviceChargePercent?: number;
+  taxPercent?: number;
+}
+
+/**
+ * Fetch a specific table by its ID from the deployed backend.
+ */
+export async function getTableById(tableId: string): Promise<Table> {
+  return await apiRequest<Table>(`/tables/${encodeURIComponent(tableId)}`);
+}
+
+/**
+ * Submit a customer order to the deployed backend.
+ */
+export async function createOrder(payload: CreateOrderPayload): Promise<Order> {
+  return await apiRequest<Order>("/orders", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
 }

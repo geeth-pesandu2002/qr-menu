@@ -4,8 +4,8 @@ import React, { useState, useEffect, useCallback, use } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useCart } from "@/src/context/CartContext";
-import { Category, MenuItem, formatPrice } from "@/src/lib/types";
-import { getCategories, getMenuItems } from "@/src/lib/api-client";
+import { Category, MenuItem, Table, formatPrice } from "@/src/lib/types";
+import { getCategories, getMenuItems, getTableById } from "@/src/lib/api-client";
 import ItemModal from "@/src/components/diner/ItemModal";
 import CartDrawer from "@/src/components/diner/CartDrawer";
 
@@ -15,14 +15,8 @@ export default function CustomerMenuPage({ params }: { params: Promise<{ tableId
 
   const { addToCart, itemCount, total, tableLabel, setTable } = useCart();
 
-  // Set table state on load
-  useEffect(() => {
-    if (tableId) {
-      setTable(tableId, `Table ${tableId.padStart(2, "0")}`);
-    }
-  }, [tableId, setTable]);
-
   // Backend data state
+  const [tableData, setTableData] = useState<Table | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -34,24 +28,33 @@ export default function CustomerMenuPage({ params }: { params: Promise<{ tableId
   const [activeItem, setActiveItem] = useState<MenuItem | null>(null);
   const [isCartOpen, setIsCartOpen] = useState<boolean>(false);
 
-  // Fetch live menu data from deployed backend
+  // Fetch live table and menu data from deployed backend
   const fetchMenuData = useCallback(async () => {
     setIsLoading(true);
     setError(null);
     try {
-      const [fetchedCats, fetchedItems] = await Promise.all([
+      const [fetchedTable, fetchedCats, fetchedItems] = await Promise.all([
+        getTableById(tableId),
         getCategories(),
         getMenuItems(),
       ]);
+
+      setTableData(fetchedTable);
+      setTable(
+        fetchedTable.id,
+        fetchedTable.label,
+        fetchedTable.qrToken || null,
+        fetchedTable.isActive !== false
+      );
       setCategories(fetchedCats);
       setMenuItems(fetchedItems);
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Failed to load menu from server";
+      const message = err instanceof Error ? err.message : "Failed to load table or menu from server";
       setError(message);
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [tableId, setTable]);
 
   useEffect(() => {
     fetchMenuData();
@@ -67,6 +70,8 @@ export default function CustomerMenuPage({ params }: { params: Promise<{ tableId
     return matchesCategory && matchesSearch;
   });
 
+  const isTableInactive = tableData?.isActive === false;
+
   return (
     <div className="min-h-screen bg-[#FAF7F2] text-[#121212] flex flex-col font-sans pb-24">
       {/* Top Header */}
@@ -80,7 +85,7 @@ export default function CustomerMenuPage({ params }: { params: Promise<{ tableId
 
         <div className="flex items-center gap-3">
           <span className="bg-[#FF6B2C] text-white text-xs px-3 py-1 rounded-full font-extrabold shadow-sm">
-            {tableLabel}
+            {tableData?.label || tableLabel}
           </span>
           <Link
             href="/orders"
@@ -101,7 +106,12 @@ export default function CustomerMenuPage({ params }: { params: Promise<{ tableId
           </div>
           <div className="bg-[#FF6B2C]/10 border border-[#FF6B2C]/30 text-[#FF6B2C] text-center p-3 rounded-xl min-w-[80px]">
             <span className="text-xs text-zinc-400 block font-medium">Table</span>
-            <span className="text-2xl font-black">{tableId}</span>
+            <span className="text-2xl font-black">{tableData?.label || tableId}</span>
+            {isTableInactive && (
+              <span className="block text-[9px] font-extrabold uppercase tracking-wider text-amber-400 mt-0.5">
+                Inactive
+              </span>
+            )}
           </div>
         </div>
       </section>
@@ -116,7 +126,7 @@ export default function CustomerMenuPage({ params }: { params: Promise<{ tableId
             </div>
             <div className="space-y-1">
               <h3 className="font-extrabold text-base text-red-900">
-                Unable to Load Menu
+                Unable to Load Table & Menu
               </h3>
               <p className="text-xs text-red-700 max-w-sm mx-auto leading-relaxed">
                 {error}
@@ -130,6 +140,23 @@ export default function CustomerMenuPage({ params }: { params: Promise<{ tableId
             </button>
           </div>
         ) : null}
+
+        {/* Table Inactive Warning */}
+        {!error && isTableInactive && (
+          <div className="bg-amber-50 border border-amber-300 rounded-3xl p-5 text-center space-y-2 shadow-sm animate-in fade-in duration-200">
+            <div className="w-10 h-10 rounded-xl bg-amber-100 text-amber-800 mx-auto flex items-center justify-center text-xl font-bold">
+              🚫
+            </div>
+            <div className="space-y-0.5">
+              <h3 className="font-extrabold text-sm text-amber-900">
+                Table Currently Unavailable
+              </h3>
+              <p className="text-xs text-amber-800 max-w-sm mx-auto leading-relaxed">
+                {tableData?.label || `Table ${tableId}`} is not active. You may browse the menu, but ordering is temporarily disabled for this table.
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* Search Bar */}
         {!error && (
@@ -286,15 +313,21 @@ export default function CustomerMenuPage({ params }: { params: Promise<{ tableId
 
                     {/* Add Button */}
                     <button
+                      disabled={isTableInactive}
                       onClick={(e) => {
                         e.stopPropagation();
+                        if (isTableInactive) return;
                         if (item.variants && item.variants.length > 0) {
                           setActiveItem(item);
                         } else {
                           addToCart(item, 1);
                         }
                       }}
-                      className="px-3.5 py-2 rounded-xl bg-[#FF6B2C]/10 text-[#FF6B2C] hover:bg-[#FF6B2C] hover:text-white font-bold text-xs transition-all flex items-center gap-1 flex-shrink-0"
+                      className={`px-3.5 py-2 rounded-xl font-bold text-xs transition-all flex items-center gap-1 flex-shrink-0 ${
+                        isTableInactive
+                          ? "bg-zinc-100 text-zinc-400 cursor-not-allowed"
+                          : "bg-[#FF6B2C]/10 text-[#FF6B2C] hover:bg-[#FF6B2C] hover:text-white"
+                      }`}
                     >
                       <span>+</span>
                       <span>Add</span>
@@ -308,7 +341,7 @@ export default function CustomerMenuPage({ params }: { params: Promise<{ tableId
       </main>
 
       {/* Floating Bottom Cart Bar */}
-      {itemCount > 0 && (
+      {itemCount > 0 && !isTableInactive && (
         <div className="fixed bottom-16 left-0 right-0 z-40 px-4 max-w-md mx-auto">
           <button
             onClick={() => setIsCartOpen(true)}
@@ -361,7 +394,7 @@ export default function CustomerMenuPage({ params }: { params: Promise<{ tableId
       <ItemModal
         item={activeItem}
         onClose={() => setActiveItem(null)}
-        onAddToCart={addToCart}
+        onAddToCart={isTableInactive ? () => {} : addToCart}
       />
 
       {/* Cart Drawer */}

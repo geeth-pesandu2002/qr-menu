@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { MenuItem, Variant, Order } from "../lib/types";
+import { createOrder } from "../lib/api-client";
 
 export interface CartItem {
   id: string; // unique cart item id (itemId + variantLabel)
@@ -14,7 +15,14 @@ export interface CartItem {
 interface CartContextType {
   tableId: string;
   tableLabel: string;
-  setTable: (id: string, label?: string) => void;
+  qrToken: string | null;
+  isTableActive: boolean;
+  setTable: (
+    id: string,
+    label?: string,
+    qrToken?: string | null,
+    isActive?: boolean
+  ) => void;
   cart: CartItem[];
   addToCart: (item: MenuItem, quantity: number, variant?: Variant, note?: string) => void;
   updateQuantity: (cartItemId: string, delta: number) => void;
@@ -25,11 +33,28 @@ interface CartContextType {
   total: number;
   itemCount: number;
   orders: Order[];
-  placeOrder: () => Order;
+  placeOrder: () => Promise<Order>;
   getOrderById: (orderId: string) => Order | undefined;
 }
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
+
+/**
+ * Retrieves an existing stable session ID from localStorage or creates a single persistent one.
+ */
+function getOrCreateSessionId(): string {
+  if (typeof window === "undefined") return "session_guest";
+  try {
+    let sid = localStorage.getItem("dinego_session_id");
+    if (!sid) {
+      sid = `sess_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+      localStorage.setItem("dinego_session_id", sid);
+    }
+    return sid;
+  } catch {
+    return `sess_${Date.now()}`;
+  }
+}
 
 export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [tableId, setTableId] = useState<string>(() => {
@@ -49,6 +74,26 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return saved ? JSON.parse(saved).label || "Table 05" : "Table 05";
     } catch {
       return "Table 05";
+    }
+  });
+
+  const [qrToken, setQrToken] = useState<string | null>(() => {
+    if (typeof window === "undefined") return null;
+    try {
+      const saved = localStorage.getItem("dinego_table");
+      return saved ? JSON.parse(saved).qrToken || null : null;
+    } catch {
+      return null;
+    }
+  });
+
+  const [isTableActive, setIsTableActive] = useState<boolean>(() => {
+    if (typeof window === "undefined") return true;
+    try {
+      const saved = localStorage.getItem("dinego_table");
+      return saved ? JSON.parse(saved).isActive ?? true : true;
+    } catch {
+      return true;
     }
   });
 
@@ -85,11 +130,32 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch {}
   }, [orders]);
 
-  const setTable = (id: string, label?: string) => {
+  const setTable = (
+    id: string,
+    label?: string,
+    token?: string | null,
+    isActive?: boolean
+  ) => {
     const tableLbl = label || `Table ${id.padStart(2, "0")}`;
+    const tokenVal = token ?? null;
+    const activeVal = isActive !== undefined ? isActive : true;
+
     setTableId(id);
     setTableLabel(tableLbl);
-    localStorage.setItem("dinego_table", JSON.stringify({ id, label: tableLbl }));
+    setQrToken(tokenVal);
+    setIsTableActive(activeVal);
+
+    try {
+      localStorage.setItem(
+        "dinego_table",
+        JSON.stringify({
+          id,
+          label: tableLbl,
+          qrToken: tokenVal,
+          isActive: activeVal,
+        })
+      );
+    } catch {}
   };
 
   const addToCart = (item: MenuItem, quantity: number, variant?: Variant, note: string = "") => {
@@ -146,35 +212,39 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const total = subtotal + serviceCharge;
   const itemCount = cart.reduce((acc, ci) => acc + ci.quantity, 0);
 
-  const placeOrder = (): Order => {
-    const orderId = (1020 + orders.length + 1).toString();
-    const newOrder: Order = {
-      id: orderId,
-      tableId,
-      tableLabel,
-      sessionId: `session_${Date.now()}`,
-      status: "RECEIVED",
-      lines: cart.map((ci) => ({
-        id: ci.id,
-        itemId: ci.item.id,
-        name: ci.item.name,
-        variantLabel: ci.selectedVariant ? ci.selectedVariant.label : null,
-        unitPrice: ci.selectedVariant ? ci.selectedVariant.price : ci.item.price,
-        qty: ci.quantity,
-        note: ci.note,
-        imageUrl: ci.item.imageUrl,
-      })),
-      subtotal,
-      serviceCharge,
-      total,
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
-      estimatedMinutes: 15,
-    };
+  const placeOrder = async (): Promise<Order> => {
+    if (!qrToken) {
+      throw new Error(
+        "Table QR code token not verified. Please scan the QR code at your table again."
+      );
+    }
+    if (!isTableActive) {
+      throw new Error("This table is currently inactive and cannot accept orders.");
+    }
+    if (cart.length === 0) {
+      throw new Error("Your cart is empty. Please add items before placing an order.");
+    }
 
-    setOrders((prev) => [newOrder, ...prev]);
+    const sessionId = getOrCreateSessionId();
+
+    const createdOrder = await createOrder({
+      qrToken,
+      sessionId,
+      items: cart.map((ci) => ({
+        itemId: ci.item.id,
+        qty: ci.quantity,
+        variantLabel: ci.selectedVariant ? ci.selectedVariant.label : undefined,
+        note: ci.note ? ci.note.trim() : undefined,
+      })),
+      serviceChargePercent: 5,
+      taxPercent: 10,
+    });
+
+    // Update local orders list with the real backend order
+    setOrders((prev) => [createdOrder, ...prev]);
+    // Clear cart only after successful backend creation
     clearCart();
-    return newOrder;
+    return createdOrder;
   };
 
   const getOrderById = (orderId: string) => orders.find((o) => o.id === orderId);
@@ -184,6 +254,8 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       value={{
         tableId,
         tableLabel,
+        qrToken,
+        isTableActive,
         setTable,
         cart,
         addToCart,
@@ -211,3 +283,4 @@ export const useCart = () => {
   }
   return context;
 };
+

@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useCart } from "@/src/context/CartContext";
@@ -15,6 +15,7 @@ export default function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
   const router = useRouter();
   const {
     tableLabel,
+    isTableActive,
     cart,
     updateQuantity,
     removeFromCart,
@@ -24,13 +25,25 @@ export default function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
     placeOrder,
   } = useCart();
 
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+
   if (!isOpen) return null;
 
-  const handleConfirmOrder = () => {
-    if (cart.length === 0) return;
-    const newOrder = placeOrder();
-    onClose();
-    router.push(`/orders/success?orderId=${newOrder.id}`);
+  const handleConfirmOrder = async () => {
+    if (cart.length === 0 || isSubmitting) return;
+    setIsSubmitting(true);
+    setSubmitError(null);
+    try {
+      const newOrder = await placeOrder();
+      onClose();
+      router.push(`/orders/success?orderId=${newOrder.id}`);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to place order";
+      setSubmitError(message);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -160,12 +173,40 @@ export default function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
               </div>
             </div>
 
+            {/* Error Message */}
+            {submitError && (
+              <div className="p-3 bg-red-50 border border-red-200 rounded-2xl text-xs text-red-700 flex items-start gap-2">
+                <span className="text-sm">⚠️</span>
+                <span className="flex-1 font-medium leading-relaxed">{submitError}</span>
+              </div>
+            )}
+
+            {/* Inactive Table Warning */}
+            {!isTableActive && (
+              <div className="p-3 bg-amber-50 border border-amber-200 rounded-2xl text-xs text-amber-800 flex items-start gap-2">
+                <span className="text-sm">⚠️</span>
+                <span className="flex-1 font-medium leading-relaxed">
+                  This table is currently inactive and cannot accept orders.
+                </span>
+              </div>
+            )}
+
             <button
               onClick={handleConfirmOrder}
-              className="w-full py-4 rounded-full bg-[#FF6B2C] hover:bg-[#E55A1F] text-white font-bold text-base transition-all shadow-lg shadow-[#FF6B2C]/30 flex items-center justify-center gap-2"
+              disabled={isSubmitting || !isTableActive}
+              className="w-full py-4 rounded-full bg-[#FF6B2C] hover:bg-[#E55A1F] disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold text-base transition-all shadow-lg shadow-[#FF6B2C]/30 flex items-center justify-center gap-2"
             >
-              <span>Place Order</span>
-              <span>• {formatPrice(total)}</span>
+              {isSubmitting ? (
+                <>
+                  <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  <span>Placing Order...</span>
+                </>
+              ) : (
+                <>
+                  <span>Place Order</span>
+                  <span>• {formatPrice(total)}</span>
+                </>
+              )}
             </button>
           </div>
         )}
