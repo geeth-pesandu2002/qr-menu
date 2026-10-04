@@ -1,10 +1,9 @@
 "use client";
 
-import React, { useState, use } from "react";
+import React, { useState, use, useCallback, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useCart } from "@/src/context/CartContext";
-import { mockCategories, mockMenuItems } from "@/src/mock/menuData";
 import { Category, MenuItem, formatPrice } from "@/src/lib/types";
 import ItemModal from "@/src/components/diner/ItemModal";
 import CartDrawer from "@/src/components/diner/CartDrawer";
@@ -28,43 +27,75 @@ export default function CustomerMenuPage({
 
   const [categories, setCategories] = useState<Category[]>([]);
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
-  const [isLoadingMenu, setIsLoadingMenu] = useState<boolean>(false);
+  const [isLoadingMenu, setIsLoadingMenu] = useState<boolean>(true);
+  const [menuError, setMenuError] = useState<string | null>(null);
 
-  // Fetch real menu items and categories from backend API
-  React.useEffect(() => {
-    let isMounted = true;
-    async function loadMenuData() {
-      try {
-        setIsLoadingMenu(true);
-        const [catsRes, itemsRes] = await Promise.all([
-          fetch("/api/categories"),
-          fetch("/api/menu-items"),
-        ]);
+  // Fetch real menu items and categories from backend API via same-origin rewrite
+  const loadMenuData = useCallback(async () => {
+    try {
+      setIsLoadingMenu(true);
+      setMenuError(null);
+      const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL || "/backend-api";
+      const [catsRes, itemsRes] = await Promise.all([
+        fetch(`${apiBase}/categories`),
+        fetch(`${apiBase}/menu-items`),
+      ]);
 
-        if (catsRes.ok) {
-          const catsJson = await catsRes.json();
-          if (catsJson.success && Array.isArray(catsJson.data) && isMounted) {
-            setCategories(catsJson.data);
-          }
-        }
-
-        if (itemsRes.ok) {
-          const itemsJson = await itemsRes.json();
-          if (itemsJson.success && Array.isArray(itemsJson.data) && isMounted) {
-            setMenuItems(itemsJson.data);
-          }
-        }
-      } catch (err) {
-        console.warn("Using offline menu fallback:", err);
-      } finally {
-        if (isMounted) setIsLoadingMenu(false);
+      if (!catsRes.ok) {
+        throw new Error(`Failed to fetch categories: ${catsRes.status} ${catsRes.statusText}`);
       }
+      if (!itemsRes.ok) {
+        throw new Error(`Failed to fetch menu items: ${itemsRes.status} ${itemsRes.statusText}`);
+      }
+
+      const catsJson = await catsRes.json();
+      const itemsJson = await itemsRes.json();
+
+      if (!catsJson.success || !Array.isArray(catsJson.data)) {
+        throw new Error(catsJson.error || "Invalid category data received from backend");
+      }
+      if (!itemsJson.success || !Array.isArray(itemsJson.data)) {
+        throw new Error(itemsJson.error || "Invalid menu item data received from backend");
+      }
+
+      const mappedCats: Category[] = catsJson.data.map((cat: any, index: number) => ({
+        id: cat.id || `category-${index}`,
+        name: cat.name || "Category",
+        sortOrder: typeof cat.sortOrder === "number" ? cat.sortOrder : index,
+        icon: cat.icon,
+        imageUrl: cat.imageUrl || null,
+        isActive: cat.isActive ?? true,
+      }));
+
+      const mappedItems: MenuItem[] = itemsJson.data.map((item: any, index: number) => ({
+        id: item.id || item._id || `${item.categoryId || "dish"}-${index}`,
+        name: item.name || "Unnamed Dish",
+        description: item.description || "",
+        price: typeof item.price === "number" ? item.price : 0,
+        categoryId: item.categoryId || "all",
+        imageUrl: item.imageUrl || null,
+        isAvailable: item.isAvailable ?? true,
+        sortOrder: typeof item.sortOrder === "number" ? item.sortOrder : index,
+        variants: Array.isArray(item.variants) ? item.variants : [],
+        ...(item.createdAt ? { createdAt: item.createdAt } : {}),
+        ...(item.updatedAt ? { updatedAt: item.updatedAt } : {}),
+        ...(item.createdBy ? { createdBy: item.createdBy } : {}),
+      }));
+
+      setCategories(mappedCats);
+      setMenuItems(mappedItems);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to load live menu";
+      console.error("🔴 Live menu fetch failed:", err);
+      setMenuError(message);
+    } finally {
+      setIsLoadingMenu(false);
     }
-    loadMenuData();
-    return () => {
-      isMounted = false;
-    };
   }, []);
+
+  useEffect(() => {
+    loadMenuData();
+  }, [loadMenuData]);
 
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState<string>("");
@@ -400,7 +431,32 @@ export default function CustomerMenuPage({
                 </span>
               </div>
 
-              {filteredItems.length === 0 ? (
+              {menuError && (
+                <div className="bg-red-500/10 border border-red-500/20 backdrop-blur-2xl rounded-3xl p-8 text-center space-y-3">
+                  <span className="text-4xl block">⚠️</span>
+                  <h3 className="font-extrabold text-base text-red-600 dark:text-red-400">
+                    Failed to Load Menu
+                  </h3>
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400 max-w-md mx-auto">
+                    {menuError}
+                  </p>
+                  <button
+                    onClick={() => loadMenuData()}
+                    className="px-5 py-2 rounded-full bg-[#FF6B2C] hover:bg-[#E55A1F] text-white font-bold text-xs transition-all shadow-md shadow-[#FF6B2C]/25 cursor-pointer"
+                  >
+                    Retry
+                  </button>
+                </div>
+              )}
+
+              {isLoadingMenu && !menuError && (
+                <div className="bg-white/60 dark:bg-white/[0.07] backdrop-blur-2xl rounded-3xl p-12 text-center text-zinc-500 dark:text-zinc-400 space-y-3 border border-white/80 dark:border-white/15 shadow-sm">
+                  <div className="w-8 h-8 border-3 border-[#FF6B2C] border-t-transparent rounded-full animate-spin mx-auto" />
+                  <p className="font-bold text-sm text-[#121212] dark:text-white">Loading fresh menu...</p>
+                </div>
+              )}
+
+              {!isLoadingMenu && !menuError && filteredItems.length === 0 ? (
                 <div className="bg-white/60 dark:bg-white/[0.07] backdrop-blur-2xl rounded-3xl p-12 text-center text-zinc-500 dark:text-zinc-400 space-y-2 border border-white/80 dark:border-white/15 shadow-sm">
                   <span className="text-5xl block">🔍</span>
                   <p className="font-extrabold text-base text-[#121212] dark:text-white">No dishes found</p>
@@ -408,7 +464,9 @@ export default function CustomerMenuPage({
                     Try searching for another dish or clear category filter.
                   </p>
                 </div>
-              ) : (
+              ) : null}
+
+              {!isLoadingMenu && !menuError && filteredItems.length > 0 && (
                 <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-5">
                   {filteredItems.map((item) => {
                     const qtyInCart = getItemCartQty(item.id);
