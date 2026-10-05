@@ -58,7 +58,14 @@ export default function LandingPage() {
           <a href="#contact" className="hover:text-white transition-colors">Contact</a>
         </nav>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2.5">
+          <Link
+            href="/admin/login"
+            className="px-3.5 py-2 rounded-full bg-white/10 hover:bg-white/20 border border-white/15 text-white text-xs font-semibold transition-all flex items-center gap-1.5"
+          >
+            <span>👑</span>
+            <span>Restaurant Owner</span>
+          </Link>
           <Link
             href="/kitchen/login"
             className="px-3.5 py-2 rounded-full bg-white/10 hover:bg-white/20 border border-white/15 text-white text-xs font-semibold transition-all flex items-center gap-1.5"
