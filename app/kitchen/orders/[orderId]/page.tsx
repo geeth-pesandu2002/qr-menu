@@ -1,56 +1,10 @@
 "use client";
 
-import React, { useState, use } from "react";
+import React, { useState, use, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useKitchen, KitchenOrder } from "@/src/context/KitchenContext";
 import { formatPrice, OrderStatus, OrderLine } from "@/src/lib/types";
-
-const DEFAULT_FALLBACK_ORDER = {
-  id: "1001",
-  tableId: "05",
-  tableLabel: "Table 05",
-  sessionId: "s1001",
-  status: "RECEIVED" as OrderStatus,
-  lines: [
-    {
-      itemId: "b1",
-      name: "1 x Chicken Burger",
-      variantLabel: null,
-      unitPrice: 1200,
-      qty: 1,
-      note: "No onions, extra cheese",
-      imageUrl:
-        "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=200&auto=format&fit=crop&q=80",
-    },
-    {
-      itemId: "d1",
-      name: "1 x Coke",
-      variantLabel: null,
-      unitPrice: 300,
-      qty: 1,
-      note: "",
-      imageUrl:
-        "https://images.unsplash.com/photo-1622483767028-3f66f32aef97?w=200&auto=format&fit=crop&q=80",
-    },
-    {
-      itemId: "f1",
-      name: "1 x Fries",
-      variantLabel: null,
-      unitPrice: 500,
-      qty: 1,
-      note: "Extra crispy",
-      imageUrl:
-        "https://images.unsplash.com/photo-1576107232684-1279f390859f?w=200&auto=format&fit=crop&q=80",
-    },
-  ],
-  subtotal: 2000,
-  serviceCharge: 100,
-  total: 2000,
-  createdAt: 1720780000000,
-  updatedAt: 1720780000000,
-  elapsedMinutes: 2,
-};
 
 export default function KitchenOrderDetailPage({
   params,
@@ -60,15 +14,26 @@ export default function KitchenOrderDetailPage({
   const resolvedParams = use(params);
   const orderId = resolvedParams.orderId;
 
-  const { kitchenOrders, updateOrderStatus } = useKitchen();
+  const { kitchenOrders, updateOrderStatus, getAuthToken } = useKitchen();
   const [showPrintModal, setShowPrintModal] = useState<boolean>(false);
   const [apiOrder, setApiOrder] = useState<KitchenOrder | null>(null);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [fetchError, setFetchError] = useState<string | null>(null);
+  const [isUpdating, setIsUpdating] = useState<boolean>(false);
+  const [updateError, setUpdateError] = useState<string | null>(null);
 
-  React.useEffect(() => {
+  useEffect(() => {
     let isMounted = true;
     async function loadOrder() {
       try {
-        const res = await fetch(`/api/orders/${orderId}`);
+        setIsLoading(true);
+        setFetchError(null);
+        const token = await getAuthToken();
+        const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL || "/backend-api";
+        const res = await fetch(`${apiBase}/orders/${orderId}`, {
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        });
+
         if (res.ok) {
           const json = await res.json();
           if (json.success && json.data && isMounted) {
@@ -76,44 +41,82 @@ export default function KitchenOrderDetailPage({
               ...json.data,
               elapsedMinutes: Math.max(
                 1,
-                Math.round((Date.now() - json.data.createdAt) / 60000)
+                Math.round((Date.now() - (json.data.createdAt || Date.now())) / 60000)
               ),
             });
           }
+        } else {
+          throw new Error(`Order fetch responded with status ${res.status}`);
         }
-      } catch (err) {
+      } catch (err: any) {
         console.warn("Could not fetch order from API:", err);
+        if (isMounted) {
+          setFetchError(err.message || "Failed to load order details");
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoading(false);
+        }
       }
     }
+
     loadOrder();
     return () => {
       isMounted = false;
     };
-  }, [orderId]);
+  }, [orderId, getAuthToken]);
 
   const activeKitchenOrder = kitchenOrders.find((o) => o.id === orderId);
-  const order =
-    apiOrder ||
-    activeKitchenOrder || {
-      ...DEFAULT_FALLBACK_ORDER,
-      id: orderId,
-    };
+  const order = apiOrder || activeKitchenOrder;
+
+  if (isLoading && !order) {
+    return (
+      <div className="max-w-4xl mx-auto py-16 text-center space-y-3 font-sans">
+        <div className="w-8 h-8 border-3 border-[#FF6B2C] border-t-transparent rounded-full animate-spin mx-auto" />
+        <p className="text-xs font-bold text-zinc-500">Loading order #{orderId} details...</p>
+      </div>
+    );
+  }
+
+  if (!order) {
+    return (
+      <div className="max-w-4xl mx-auto py-16 text-center space-y-4 font-sans bg-white rounded-3xl border border-zinc-200 p-8">
+        <span className="text-4xl block">🔍</span>
+        <h2 className="text-lg font-black text-[#121212]">Order Not Found</h2>
+        <p className="text-xs text-zinc-500 max-w-sm mx-auto">
+          {fetchError || `Could not find an active or historical order with ID #${orderId}.`}
+        </p>
+        <Link
+          href="/kitchen/dashboard"
+          className="inline-block px-5 py-2.5 rounded-full bg-[#FF6B2C] text-white font-bold text-xs hover:bg-[#E55A1F] transition-all"
+        >
+          ← Return to Live Orders
+        </Link>
+      </div>
+    );
+  }
 
   const isNew = order.status === "RECEIVED";
   const isPreparing = order.status === "PREPARING";
   const isServed = order.status === "SERVED";
   const isCompleted = order.status === "COMPLETED";
 
-  const handleNextStatus = () => {
+  const handleNextStatus = async () => {
     let nextStatus: OrderStatus | null = null;
     if (isNew) nextStatus = "PREPARING";
     else if (isPreparing) nextStatus = "SERVED";
     else if (isServed) nextStatus = "COMPLETED";
 
     if (nextStatus) {
-      updateOrderStatus(order.id, nextStatus);
-      if (apiOrder) {
-        setApiOrder({ ...apiOrder, status: nextStatus, updatedAt: Date.now() });
+      try {
+        setIsUpdating(true);
+        setUpdateError(null);
+        await updateOrderStatus(order.id, nextStatus);
+        setApiOrder((prev) => (prev ? { ...prev, status: nextStatus!, updatedAt: Date.now() } : null));
+      } catch (err: any) {
+        setUpdateError(err.message || "Failed to update order status.");
+      } finally {
+        setIsUpdating(false);
       }
     }
   };
@@ -144,17 +147,38 @@ export default function KitchenOrderDetailPage({
         <div className="text-right">
           <span className="text-xs text-zinc-400 font-semibold block">Order Time</span>
           <span className="text-xs font-bold text-zinc-700" suppressHydrationWarning>
-            12:22 PM ({order.elapsedMinutes || 2} mins ago)
+            {order.createdAt
+              ? new Date(order.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+              : "Live"}{" "}
+            ({order.elapsedMinutes || 1} mins ago)
           </span>
         </div>
       </div>
+
+      {/* Action Error Banner */}
+      {updateError && (
+        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-2xl text-xs font-medium flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span>⚠️</span>
+            <span>{updateError}</span>
+          </div>
+          <button
+            onClick={() => setUpdateError(null)}
+            className="text-red-500 hover:text-red-800 font-bold text-xs"
+          >
+            ✕
+          </button>
+        </div>
+      )}
 
       {/* Main Order Card */}
       <div className="bg-white rounded-3xl border border-zinc-200 shadow-sm p-6 space-y-6">
         {/* Title Bar */}
         <div className="flex flex-wrap items-center justify-between gap-4 border-b border-zinc-100 pb-4">
           <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-black text-[#121212]">{order.tableLabel}</h1>
+            <h1 className="text-2xl font-black text-[#121212]">
+              {order.tableLabel || `Table ${order.tableId}`}
+            </h1>
             <span className="text-xs font-bold text-zinc-400">#{order.id}</span>
             <span
               className={`text-xs font-extrabold px-3 py-1 rounded-full ${
@@ -162,7 +186,9 @@ export default function KitchenOrderDetailPage({
                   ? "bg-red-100 text-red-700"
                   : isPreparing
                   ? "bg-amber-100 text-amber-800"
-                  : "bg-emerald-100 text-emerald-800"
+                  : isServed
+                  ? "bg-emerald-100 text-emerald-800"
+                  : "bg-zinc-100 text-zinc-600"
               }`}
             >
               {isNew ? "New Order" : isPreparing ? "Preparing" : isServed ? "Ready to Serve" : "Completed"}
@@ -171,7 +197,7 @@ export default function KitchenOrderDetailPage({
 
           <button
             onClick={() => setShowPrintModal(true)}
-            className="px-4 py-2 rounded-xl bg-zinc-100 hover:bg-zinc-200 text-zinc-800 font-bold text-xs flex items-center gap-2 transition-all"
+            className="px-4 py-2 rounded-xl bg-zinc-100 hover:bg-zinc-200 text-zinc-800 font-bold text-xs flex items-center gap-2 transition-all cursor-pointer"
           >
             <span>🖨️</span>
             <span>Print Ticket</span>
@@ -204,7 +230,14 @@ export default function KitchenOrderDetailPage({
                   )}
 
                   <div>
-                    <h3 className="font-extrabold text-sm text-[#121212]">{line.name}</h3>
+                    <h3 className="font-extrabold text-sm text-[#121212]">
+                      {line.name} <span className="text-[#FF6B2C]">x{line.qty}</span>
+                    </h3>
+                    {line.variantLabel && (
+                      <span className="text-xs text-zinc-400 font-semibold block">
+                        {line.variantLabel}
+                      </span>
+                    )}
                     {line.note && (
                       <p className="text-xs text-amber-800 font-medium italic mt-0.5">
                         Note: &quot;{line.note}&quot;
@@ -249,7 +282,6 @@ export default function KitchenOrderDetailPage({
                 ✓
               </div>
               <span className="text-[11px] font-bold text-[#121212]">Received</span>
-              <span className="text-[10px] text-zinc-400">12:16 PM</span>
             </div>
 
             {/* Step 2: Preparing */}
@@ -264,7 +296,6 @@ export default function KitchenOrderDetailPage({
                 🍳
               </div>
               <span className="text-[11px] font-bold text-[#121212]">Preparing</span>
-              <span className="text-[10px] text-zinc-400">12:20 PM</span>
             </div>
 
             {/* Step 3: Ready */}
@@ -304,9 +335,9 @@ export default function KitchenOrderDetailPage({
             ← Back
           </Link>
           <button
-            disabled={isCompleted}
+            disabled={isCompleted || isUpdating}
             onClick={handleNextStatus}
-            className={`flex-2 py-3.5 rounded-full font-bold text-sm text-white transition-all shadow-lg flex items-center justify-center gap-2 ${
+            className={`flex-2 py-3.5 rounded-full font-bold text-sm text-white transition-all shadow-lg flex items-center justify-center gap-2 cursor-pointer active:scale-98 ${
               isCompleted
                 ? "bg-zinc-300 cursor-not-allowed opacity-60"
                 : isNew
@@ -316,8 +347,17 @@ export default function KitchenOrderDetailPage({
                 : "bg-[#198754] hover:bg-emerald-700 shadow-emerald-600/30"
             }`}
           >
-            <span>▶</span>
-            <span>{getNextActionText()}</span>
+            {isUpdating ? (
+              <>
+                <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                <span>Updating...</span>
+              </>
+            ) : (
+              <>
+                <span>▶</span>
+                <span>{getNextActionText()}</span>
+              </>
+            )}
           </button>
         </div>
       </div>
@@ -328,16 +368,22 @@ export default function KitchenOrderDetailPage({
           <div className="w-full max-w-sm bg-white p-6 rounded-3xl shadow-2xl space-y-4 text-center font-mono">
             <div className="border-b border-dashed border-zinc-400 pb-3">
               <h3 className="font-black text-lg text-black">*** KITCHEN TICKET ***</h3>
-              <p className="text-xs text-zinc-600">{order.tableLabel} • ORDER #{order.id}</p>
+              <p className="text-xs text-zinc-600">
+                {order.tableLabel || `Table ${order.tableId}`} • ORDER #{order.id}
+              </p>
               <p className="text-[11px] text-zinc-500 mt-1">
-                {new Date(order.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                {order.createdAt
+                  ? new Date(order.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+                  : "Live"}
               </p>
             </div>
 
             <div className="text-left text-xs space-y-2 py-2">
               {order.lines.map((l: OrderLine, i: number) => (
                 <div key={i} className="flex justify-between font-bold">
-                  <span>{l.name}</span>
+                  <span>
+                    {l.name} {l.variantLabel ? `(${l.variantLabel})` : ""}
+                  </span>
                   <span>x{l.qty}</span>
                 </div>
               ))}
@@ -354,13 +400,13 @@ export default function KitchenOrderDetailPage({
                   window.print();
                   setShowPrintModal(false);
                 }}
-                className="w-full py-3 rounded-full bg-[#121212] text-white font-bold text-xs"
+                className="w-full py-3 rounded-full bg-[#121212] text-white font-bold text-xs cursor-pointer"
               >
                 🖨️ Print Ticket
               </button>
               <button
                 onClick={() => setShowPrintModal(false)}
-                className="w-full py-2 text-zinc-500 font-bold text-xs"
+                className="w-full py-2 text-zinc-500 font-bold text-xs cursor-pointer"
               >
                 Close
               </button>

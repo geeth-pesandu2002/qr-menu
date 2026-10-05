@@ -1,7 +1,15 @@
 "use client";
 
-import React, { createContext, useContext, useState, useEffect } from "react";
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from "react";
+import { usePathname } from "next/navigation";
 import { Order, OrderStatus } from "../lib/types";
+import { auth } from "@/src/lib/firebase";
+import {
+  signInWithEmailAndPassword,
+  signOut,
+  onAuthStateChanged,
+  User,
+} from "firebase/auth";
 
 export interface KitchenOrder extends Order {
   elapsedMinutes?: number;
@@ -9,10 +17,17 @@ export interface KitchenOrder extends Order {
 
 interface KitchenContextType {
   isAuthenticated: boolean;
-  login: (email: string) => boolean;
-  logout: () => void;
+  isAuthLoading: boolean;
+  user: User | null;
+  authType: "firebase" | "demo" | null;
+  login: (email: string, password?: string) => Promise<{ success: boolean; error?: string }>;
+  loginDemo: () => boolean;
+  logout: () => Promise<void>;
+  getAuthToken: () => Promise<string | null>;
   kitchenOrders: KitchenOrder[];
-  updateOrderStatus: (orderId: string, newStatus: OrderStatus) => void;
+  isLoadingOrders: boolean;
+  ordersError: string | null;
+  updateOrderStatus: (orderId: string, newStatus: OrderStatus) => Promise<boolean>;
   getOrdersByStatus: (statusGroup: "NEW" | "PREPARING" | "READY" | "SERVED") => KitchenOrder[];
   activeOrder: KitchenOrder | null;
   setActiveOrder: (order: KitchenOrder | null) => void;
@@ -20,216 +35,324 @@ interface KitchenContextType {
   refreshKitchenOrders: () => Promise<void>;
 }
 
-// Initial mock orders matching the Kitchen Staff UI screenshot (Tables 05, 03, 02, 07, 08, 06)
-const DEFAULT_KITCHEN_ORDERS: KitchenOrder[] = [
-  {
-    id: "1001",
-    tableId: "05",
-    tableLabel: "Table 05",
-    sessionId: "s1001",
-    status: "RECEIVED",
-    lines: [
-      { itemId: "b1", name: "1 x Chicken Burger", variantLabel: null, unitPrice: 1200, qty: 1, note: "No onions, extra cheese", imageUrl: "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=200&auto=format&fit=crop&q=80" },
-      { itemId: "d1", name: "1 x Coke", variantLabel: null, unitPrice: 300, qty: 1, note: "", imageUrl: "https://images.unsplash.com/photo-1622483767028-3f66f32aef97?w=200&auto=format&fit=crop&q=80" },
-      { itemId: "f1", name: "1 x Fries", variantLabel: null, unitPrice: 500, qty: 1, note: "Extra crispy", imageUrl: "https://images.unsplash.com/photo-1576107232684-1279f390859f?w=200&auto=format&fit=crop&q=80" },
-    ],
-    subtotal: 2000,
-    serviceCharge: 100,
-    total: 2000,
-    createdAt: 1720780000000,
-    updatedAt: 1720780000000,
-    elapsedMinutes: 2,
-  },
-  {
-    id: "0002",
-    tableId: "07",
-    tableLabel: "Table 07",
-    sessionId: "s0002",
-    status: "RECEIVED",
-    lines: [
-      { itemId: "p1", name: "1 x Margherita Pizza", variantLabel: null, unitPrice: 1500, qty: 1, note: "", imageUrl: "https://images.unsplash.com/photo-1604382354936-07c5d9983bd3?w=200&auto=format&fit=crop&q=80" },
-      { itemId: "d1", name: "2 x Iced Coffee", variantLabel: null, unitPrice: 600, qty: 2, note: "", imageUrl: "https://images.unsplash.com/photo-1517701604599-bb29b565090c?w=200&auto=format&fit=crop&q=80" },
-    ],
-    subtotal: 2700,
-    serviceCharge: 135,
-    total: 2700,
-    createdAt: 1720779800000,
-    updatedAt: 1720779800000,
-    elapsedMinutes: 4,
-  },
-  {
-    id: "0099",
-    tableId: "03",
-    tableLabel: "Table 03",
-    sessionId: "s0099",
-    status: "PREPARING",
-    lines: [
-      { itemId: "b2", name: "1 x Beef Burger", variantLabel: null, unitPrice: 1350, qty: 1, note: "", imageUrl: "https://images.unsplash.com/photo-1586190848861-99aa4a171e90?w=200&auto=format&fit=crop&q=80" },
-      { itemId: "o1", name: "1 x Onion Rings", variantLabel: null, unitPrice: 450, qty: 1, note: "", imageUrl: "https://images.unsplash.com/photo-1639024471283-03518883512d?w=200&auto=format&fit=crop&q=80" },
-    ],
-    subtotal: 1800,
-    serviceCharge: 90,
-    total: 1800,
-    createdAt: 1720779600000,
-    updatedAt: 1720779600000,
-    elapsedMinutes: 6,
-  },
-  {
-    id: "0098",
-    tableId: "08",
-    tableLabel: "Table 08",
-    sessionId: "s0098",
-    status: "PREPARING",
-    lines: [
-      { itemId: "pa1", name: "1 x Chicken Pasta", variantLabel: null, unitPrice: 1400, qty: 1, note: "", imageUrl: "https://images.unsplash.com/photo-1551183053-bf91a1d81141?w=200&auto=format&fit=crop&q=80" },
-      { itemId: "g1", name: "1 x Garlic Bread", variantLabel: null, unitPrice: 400, qty: 1, note: "", imageUrl: "https://images.unsplash.com/photo-1573140247632-f8fd74997d5c?w=200&auto=format&fit=crop&q=80" },
-    ],
-    subtotal: 1800,
-    serviceCharge: 90,
-    total: 1800,
-    createdAt: 1720779200000,
-    updatedAt: 1720779200000,
-    elapsedMinutes: 10,
-  },
-  {
-    id: "0097",
-    tableId: "02",
-    tableLabel: "Table 02",
-    sessionId: "s0097",
-    status: "SERVED", // Treated as Ready in Kanban View
-    lines: [
-      { itemId: "cs1", name: "1 x Caesar Salad", variantLabel: null, unitPrice: 1100, qty: 1, note: "", imageUrl: "https://images.unsplash.com/photo-1540420773420-3366772f4999?w=200&auto=format&fit=crop&q=80" },
-      { itemId: "l1", name: "1 x Lemonade", variantLabel: null, unitPrice: 650, qty: 1, note: "", imageUrl: "https://images.unsplash.com/photo-1621263764928-df1444c5e859?w=200&auto=format&fit=crop&q=80" },
-    ],
-    subtotal: 1750,
-    serviceCharge: 87,
-    total: 1750,
-    createdAt: 1720779000000,
-    updatedAt: 1720779000000,
-    elapsedMinutes: 12,
-  },
-  {
-    id: "0096",
-    tableId: "06",
-    tableLabel: "Table 06",
-    sessionId: "s0096",
-    status: "SERVED",
-    lines: [
-      { itemId: "p2", name: "1 x Pepperoni Pizza", variantLabel: null, unitPrice: 1750, qty: 1, note: "", imageUrl: "https://images.unsplash.com/photo-1628840042765-356cda07504e?w=200&auto=format&fit=crop&q=80" },
-      { itemId: "d1", name: "1 x Coke", variantLabel: null, unitPrice: 300, qty: 1, note: "", imageUrl: "https://images.unsplash.com/photo-1622483767028-3f66f32aef97?w=200&auto=format&fit=crop&q=80" },
-    ],
-    subtotal: 2050,
-    serviceCharge: 100,
-    total: 2050,
-    createdAt: 1720778700000,
-    updatedAt: 1720778700000,
-    elapsedMinutes: 15,
-  },
-];
-
 const KitchenContext = createContext<KitchenContextType | undefined>(undefined);
 
 export const KitchenProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const pathname = usePathname();
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
-  const [kitchenOrders, setKitchenOrders] = useState<KitchenOrder[]>(DEFAULT_KITCHEN_ORDERS);
+  const [isAuthLoading, setIsAuthLoading] = useState<boolean>(true);
+  const [user, setUser] = useState<User | null>(null);
+  const [authType, setAuthType] = useState<"firebase" | "demo" | null>(null);
+
+  const [kitchenOrders, setKitchenOrders] = useState<KitchenOrder[]>([]);
+  const [isLoadingOrders, setIsLoadingOrders] = useState<boolean>(false);
+  const [ordersError, setOrdersError] = useState<string | null>(null);
   const [activeOrder, setActiveOrder] = useState<KitchenOrder | null>(null);
-  const [isLoaded, setIsLoaded] = useState<boolean>(false);
 
-  // Load from localStorage after initial client mount to prevent SSR hydration mismatches
+  const isMountedRef = useRef(true);
+
   useEffect(() => {
-    try {
-      const savedAuth = localStorage.getItem("dinego_kitchen_auth");
-      if (savedAuth === "true") setIsAuthenticated(true);
-
-      const savedOrders = localStorage.getItem("dinego_kitchen_orders");
-      if (savedOrders) setKitchenOrders(JSON.parse(savedOrders));
-    } catch {}
-    setIsLoaded(true);
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
   }, []);
 
-  // Poll backend /api/orders in real-time
+  // 1. Firebase Auth State Listener & Demo State Initialization
   useEffect(() => {
-    let isMounted = true;
-    const fetchApiOrders = async () => {
-      try {
-        const res = await fetch("/api/orders", {
-          headers: {
-            Authorization: "Bearer kitchen-demo",
-          },
-        });
-        if (res.ok) {
-          const json = await res.json();
-          if (json.success && Array.isArray(json.data) && isMounted) {
-            setKitchenOrders((prev) => {
-              const serverOrders: KitchenOrder[] = json.data.map((o: Order) => {
-                const existing = prev.find((p) => p.id === o.id);
-                return {
-                  ...o,
-                  elapsedMinutes:
-                    existing?.elapsedMinutes ??
-                    Math.max(1, Math.round((Date.now() - o.createdAt) / 60000)),
-                };
-              });
-              return serverOrders;
-            });
-          }
-        }
-      } catch (err) {
-        console.warn("Kitchen could not poll /api/orders:", err);
-      }
-    };
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      if (firebaseUser) {
+        try {
+          const idTokenResult = await firebaseUser.getIdTokenResult();
+          const role = idTokenResult.claims.role;
 
-    fetchApiOrders();
-    const interval = setInterval(fetchApiOrders, 4000);
+          if (role === "kitchen") {
+            if (isMountedRef.current) {
+              setUser(firebaseUser);
+              setAuthType("firebase");
+              setIsAuthenticated(true);
+              setIsAuthLoading(false);
+            }
+            return;
+          } else {
+            console.warn("User does not have kitchen role:", role);
+            await signOut(auth);
+            if (isMountedRef.current) {
+              setUser(null);
+              setAuthType(null);
+              setIsAuthenticated(false);
+              setIsAuthLoading(false);
+            }
+            return;
+          }
+        } catch (err) {
+          console.error("Error reading Firebase ID token claims:", err);
+          if (isMountedRef.current) {
+            setUser(null);
+            setAuthType(null);
+            setIsAuthenticated(false);
+            setIsAuthLoading(false);
+          }
+          return;
+        }
+      }
+
+      // If no Firebase user, check if a demo session exists
+      try {
+        const demoToken = localStorage.getItem("dinego_demo_staff_token");
+        if (demoToken === "staff-token") {
+          if (isMountedRef.current) {
+            setUser(null);
+            setAuthType("demo");
+            setIsAuthenticated(true);
+            setIsAuthLoading(false);
+          }
+          return;
+        }
+      } catch {}
+
+      if (isMountedRef.current) {
+        setUser(null);
+        setAuthType(null);
+        setIsAuthenticated(false);
+        setIsAuthLoading(false);
+      }
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  // 2. Helper to get an authenticated Bearer token (fresh Firebase token or staff-token)
+  const getAuthToken = useCallback(async (): Promise<string | null> => {
+    if (authType === "demo") {
+      return "staff-token";
+    }
+
+    if (auth.currentUser) {
+      try {
+        const token = await auth.currentUser.getIdToken(false);
+        return token;
+      } catch (err) {
+        console.warn("Could not retrieve fresh Firebase ID token:", err);
+      }
+    }
+
+    try {
+      const demoToken = localStorage.getItem("dinego_demo_staff_token");
+      if (demoToken === "staff-token") {
+        return "staff-token";
+      }
+    } catch {}
+
+    return null;
+  }, [authType]);
+
+  // 3. Login with Firebase Client Auth
+  const login = async (
+    email: string,
+    password?: string
+  ): Promise<{ success: boolean; error?: string }> => {
+    try {
+      setIsAuthLoading(true);
+      // Clear demo token
+      try {
+        localStorage.removeItem("dinego_demo_staff_token");
+      } catch {}
+
+      if (!password) {
+        return { success: false, error: "Password is required." };
+      }
+
+      const userCredential = await signInWithEmailAndPassword(auth, email.trim(), password);
+      const idTokenResult = await userCredential.user.getIdTokenResult(true);
+
+      if (idTokenResult.claims.role !== "kitchen") {
+        await signOut(auth);
+        setUser(null);
+        setAuthType(null);
+        setIsAuthenticated(false);
+        return {
+          success: false,
+          error: "Access denied. This account does not have kitchen privileges.",
+        };
+      }
+
+      setUser(userCredential.user);
+      setAuthType("firebase");
+      setIsAuthenticated(true);
+      return { success: true };
+    } catch (err: any) {
+      let message = "Invalid email or password. Please try again.";
+      if (err.code === "auth/user-not-found" || err.code === "auth/wrong-password" || err.code === "auth/invalid-credential") {
+        message = "Invalid email or password.";
+      } else if (err.code === "auth/too-many-requests") {
+        message = "Too many failed attempts. Please try again later.";
+      } else if (err instanceof Error) {
+        message = err.message;
+      }
+      return { success: false, error: message };
+    } finally {
+      setIsAuthLoading(false);
+    }
+  };
+
+  // 4. Demo Login for Testing (explicit staff-token supported by backend)
+  const loginDemo = (): boolean => {
+    try {
+      localStorage.setItem("dinego_demo_staff_token", "staff-token");
+    } catch {}
+    setUser(null);
+    setAuthType("demo");
+    setIsAuthenticated(true);
+    return true;
+  };
+
+  // 5. Logout
+  const logout = async () => {
+    try {
+      localStorage.removeItem("dinego_demo_staff_token");
+      localStorage.removeItem("dinego_kitchen_orders");
+    } catch {}
+
+    try {
+      if (auth.currentUser) {
+        await signOut(auth);
+      }
+    } catch (err) {
+      console.warn("Firebase sign out error:", err);
+    }
+
+    setUser(null);
+    setAuthType(null);
+    setIsAuthenticated(false);
+    setKitchenOrders([]);
+  };
+
+  // 6. Fetch orders from deployed backend
+  const fetchKitchenOrders = useCallback(async () => {
+    const token = await getAuthToken();
+    if (!token) return;
+
+    try {
+      setIsLoadingOrders(true);
+      setOrdersError(null);
+      const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL || "/backend-api";
+      const res = await fetch(`${apiBase}/orders`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!res.ok) {
+        throw new Error(`Order fetch failed with HTTP status ${res.status}`);
+      }
+
+      const json = await res.json();
+      if (!json.success || !Array.isArray(json.data)) {
+        throw new Error(json.error || "Invalid response received from orders API");
+      }
+
+      if (isMountedRef.current) {
+        const mapped: KitchenOrder[] = json.data.map((o: Order) => ({
+          ...o,
+          elapsedMinutes: Math.max(
+            1,
+            Math.round((Date.now() - (o.createdAt || Date.now())) / 60000)
+          ),
+        }));
+        setKitchenOrders(mapped);
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to load live kitchen orders";
+      console.error("🔴 Kitchen order fetch failed:", err);
+      if (isMountedRef.current) {
+        setOrdersError(message);
+      }
+    } finally {
+      if (isMountedRef.current) {
+        setIsLoadingOrders(false);
+      }
+    }
+  }, [getAuthToken]);
+
+  // 7. Polling scoped ONLY to authenticated kitchen routes (stops global polling leak!)
+  useEffect(() => {
+    const isKitchenRoute = pathname ? pathname.startsWith("/kitchen") && pathname !== "/kitchen/login" : false;
+
+    // Do NOT poll if user is on diner pages, landing, admin, or not authenticated
+    if (!isKitchenRoute || !isAuthenticated) {
+      return;
+    }
+
+    // Initial fetch on entering kitchen route
+    fetchKitchenOrders();
+
+    // Poll every 5 seconds while on kitchen route
+    const interval = setInterval(() => {
+      fetchKitchenOrders();
+    }, 5000);
+
     return () => {
-      isMounted = false;
       clearInterval(interval);
     };
-  }, []);
+  }, [pathname, isAuthenticated, fetchKitchenOrders]);
 
-  // Sync changes to localStorage only after initial load
-  useEffect(() => {
-    if (!isLoaded) return;
-    try {
-      localStorage.setItem("dinego_kitchen_orders", JSON.stringify(kitchenOrders));
-    } catch {}
-  }, [kitchenOrders, isLoaded]);
+  // 8. Manual Refresh
+  const refreshKitchenOrders = async () => {
+    await fetchKitchenOrders();
+  };
 
-  const login = (email: string) => {
-    if (email.trim().length > 0) {
-      setIsAuthenticated(true);
-      localStorage.setItem("dinego_kitchen_auth", "true");
-      return true;
+  // 9. Status Update via PATCH /backend-api/orders/[id]
+  const updateOrderStatus = async (
+    orderId: string,
+    newStatus: OrderStatus
+  ): Promise<boolean> => {
+    const token = await getAuthToken();
+    if (!token) {
+      throw new Error("Authentication token required to update status.");
     }
-    return false;
-  };
 
-  const logout = () => {
-    setIsAuthenticated(false);
-    localStorage.removeItem("dinego_kitchen_auth");
-  };
+    const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL || "/backend-api";
+    const res = await fetch(`${apiBase}/orders/${orderId}`, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ status: newStatus }),
+    });
 
-  const updateOrderStatus = async (orderId: string, newStatus: OrderStatus) => {
+    if (!res.ok) {
+      const errorJson = await res.json().catch(() => null);
+      const msg = errorJson?.error || `Failed to update order status (${res.status})`;
+      throw new Error(msg);
+    }
+
+    const json = await res.json();
+    if (!json.success || !json.data) {
+      throw new Error(json?.error || "Invalid response from server");
+    }
+
+    const updatedOrder = json.data as Order;
+
+    // Update real state after backend confirmation
     setKitchenOrders((prev) =>
-      prev.map((o) => (o.id === orderId ? { ...o, status: newStatus, updatedAt: Date.now() } : o))
+      prev.map((o) =>
+        o.id === orderId
+          ? {
+              ...o,
+              ...updatedOrder,
+              elapsedMinutes: o.elapsedMinutes,
+            }
+          : o
+      )
     );
 
     if (activeOrder && activeOrder.id === orderId) {
-      setActiveOrder((prev) => (prev ? { ...prev, status: newStatus } : null));
+      setActiveOrder((prev) => (prev ? { ...prev, ...updatedOrder } : null));
     }
 
-    try {
-      await fetch(`/api/orders/${orderId}`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: "Bearer kitchen-demo",
-        },
-        body: JSON.stringify({ status: newStatus }),
-      });
-    } catch (err) {
-      console.warn("Could not patch order status to API:", err);
-    }
+    return true;
   };
 
   const getOrdersByStatus = (statusGroup: "NEW" | "PREPARING" | "READY" | "SERVED") => {
@@ -247,50 +370,29 @@ export const KitchenProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
   };
 
-  const refreshKitchenOrders = async () => {
-    try {
-      const res = await fetch("/api/orders", {
-        headers: {
-          Authorization: "Bearer kitchen-demo",
-        },
-      });
-      if (res.ok) {
-        const json = await res.json();
-        if (json.success && Array.isArray(json.data)) {
-          setKitchenOrders((prev) => {
-            const serverOrders: KitchenOrder[] = json.data.map((o: Order) => {
-              const existing = prev.find((p) => p.id === o.id);
-              return {
-                ...o,
-                elapsedMinutes:
-                  existing?.elapsedMinutes ??
-                  Math.max(1, Math.round((Date.now() - o.createdAt) / 60000)),
-              };
-            });
-            return serverOrders;
-          });
-        }
-      }
-    } catch (err) {
-      console.warn("Kitchen refresh error:", err);
-    }
-  };
-
+  // Helper for customer-side placement (kept for compatibility)
   const addKitchenOrder = (newOrder: Order) => {
     const kitchenItem: KitchenOrder = {
       ...newOrder,
       elapsedMinutes: 1,
     };
-    setKitchenOrders((prev) => [kitchenItem, ...prev]);
+    setKitchenOrders((prev) => [kitchenItem, ...prev.filter((o) => o.id !== newOrder.id)]);
   };
 
   return (
     <KitchenContext.Provider
       value={{
         isAuthenticated,
+        isAuthLoading,
+        user,
+        authType,
         login,
+        loginDemo,
         logout,
+        getAuthToken,
         kitchenOrders,
+        isLoadingOrders,
+        ordersError,
         updateOrderStatus,
         getOrdersByStatus,
         activeOrder,

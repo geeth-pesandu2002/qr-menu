@@ -3,15 +3,18 @@
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { KitchenProvider, useKitchen } from "@/src/context/KitchenContext";
+import { useKitchen } from "@/src/context/KitchenContext";
 
 function KitchenLayoutContent({ children }: { children: React.ReactNode }) {
+  // 1. All hooks called unconditionally at the top level
   const pathname = usePathname();
   const router = useRouter();
-  const { logout } = useKitchen();
-
+  const { isAuthenticated, isAuthLoading, logout } = useKitchen();
   const [currentTime, setCurrentTime] = useState<string>("");
 
+  const isLoginPage = pathname === "/kitchen/login";
+
+  // Clock effect
   useEffect(() => {
     const updateTime = () => {
       const now = new Date();
@@ -34,11 +37,40 @@ function KitchenLayoutContent({ children }: { children: React.ReactNode }) {
     return () => clearInterval(interval);
   }, []);
 
-  // If on login page, render children directly without sidebar
-  if (pathname === "/kitchen/login") {
+  // Route protection effect: redirect to login if unauthenticated on protected kitchen routes
+  useEffect(() => {
+    if (!isAuthLoading && !isAuthenticated && !isLoginPage) {
+      router.replace("/kitchen/login");
+    }
+  }, [isAuthenticated, isAuthLoading, isLoginPage, router]);
+
+  // Conditional renders start AFTER all hooks have been invoked unconditionally
+
+  // Case 1: Login page is public, render without sidebar or authentication block
+  if (isLoginPage) {
     return <>{children}</>;
   }
 
+  // Case 2: Show loading screen while verifying authentication state
+  if (isAuthLoading) {
+    return (
+      <div className="min-h-screen bg-[#121212] flex items-center justify-center p-4">
+        <div className="text-center space-y-3">
+          <div className="w-10 h-10 border-3 border-[#FF6B2C] border-t-transparent rounded-full animate-spin mx-auto" />
+          <p className="text-zinc-400 font-semibold text-xs tracking-wider uppercase">
+            Verifying Kitchen Access...
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // Case 3: While redirecting unauthenticated users to /kitchen/login
+  if (!isAuthenticated) {
+    return null;
+  }
+
+  // Case 4: Authenticated kitchen user — render full kitchen portal layout
   return (
     <div className="min-h-screen bg-[#FAF7F2] text-[#121212] flex font-sans">
       {/* Dark Sidebar */}
@@ -87,7 +119,7 @@ function KitchenLayoutContent({ children }: { children: React.ReactNode }) {
 
             <button
               onClick={() => alert("Kitchen Settings: Display preferences & printer configuration.")}
-              className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-zinc-400 hover:bg-white/5 hover:text-white transition-all text-left"
+              className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-zinc-400 hover:bg-white/5 hover:text-white transition-all text-left cursor-pointer"
             >
               <span>⚙️</span>
               <span>Settings</span>
@@ -97,11 +129,11 @@ function KitchenLayoutContent({ children }: { children: React.ReactNode }) {
 
         {/* Logout Button */}
         <button
-          onClick={() => {
-            logout();
+          onClick={async () => {
+            await logout();
             router.push("/kitchen/login");
           }}
-          className="flex items-center gap-2 px-4 py-3 rounded-xl text-zinc-400 hover:bg-red-500/10 hover:text-red-400 text-sm font-semibold transition-all"
+          className="flex items-center gap-2 px-4 py-3 rounded-xl text-zinc-400 hover:bg-red-500/10 hover:text-red-400 text-sm font-semibold transition-all cursor-pointer"
         >
           <span>🚪</span>
           <span>Log Out</span>

@@ -1,28 +1,67 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { useKitchen } from "@/src/context/KitchenContext";
-import { formatPrice } from "@/src/lib/types";
-
-const FALLBACK_HISTORY_ORDERS = [
-  { id: "#1001", table: "05", items: 3, total: 2000, status: "Served", time: "12:45 PM" },
-  { id: "#1000", table: "02", items: 2, total: 1650, status: "Served", time: "12:40 PM" },
-  { id: "#0099", table: "08", items: 2, total: 1800, status: "Served", time: "12:35 PM" },
-  { id: "#0098", table: "03", items: 2, total: 1650, status: "Served", time: "12:30 PM" },
-  { id: "#0097", table: "06", items: 2, total: 1750, status: "Served", time: "12:20 PM" },
-  { id: "#0096", table: "02", items: 2, total: 1100, status: "Served", time: "12:15 PM" },
-];
+import { formatPrice, Order } from "@/src/lib/types";
 
 export default function KitchenOrderHistoryPage() {
-  const { kitchenOrders, refreshKitchenOrders } = useKitchen();
-  const [selectedDate, setSelectedDate] = useState("Today");
+  const { getAuthToken } = useKitchen();
+  const [filterRange, setFilterRange] = useState("all");
+  const [historyOrders, setHistoryOrders] = useState<Order[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [fetchError, setFetchError] = useState<string | null>(null);
 
-  React.useEffect(() => {
-    refreshKitchenOrders();
-  }, [refreshKitchenOrders]);
+  const loadHistory = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      setFetchError(null);
+      const token = await getAuthToken();
+      const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL || "/backend-api";
 
-  const completedList = kitchenOrders.filter(
+      let queryParams = "";
+      const now = new Date();
+      if (filterRange === "today") {
+        const start = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+        const end = start + 86400000 - 1;
+        queryParams = `?startDate=${start}&endDate=${end}`;
+      } else if (filterRange === "yesterday") {
+        const start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1).getTime();
+        const end = start + 86400000 - 1;
+        queryParams = `?startDate=${start}&endDate=${end}`;
+      } else if (filterRange === "7days") {
+        const start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 7).getTime();
+        const end = now.getTime();
+        queryParams = `?startDate=${start}&endDate=${end}`;
+      }
+
+      const res = await fetch(`${apiBase}/orders${queryParams}`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+
+      if (res.ok) {
+        const json = await res.json();
+        if (json.success && Array.isArray(json.data)) {
+          setHistoryOrders(json.data);
+        } else {
+          setHistoryOrders([]);
+        }
+      } else {
+        throw new Error(`Failed to load history (${res.status})`);
+      }
+    } catch (err: any) {
+      console.warn("Kitchen history fetch error:", err);
+      setFetchError(err.message || "Failed to load order history");
+    } finally {
+      setIsLoading(false);
+    }
+  }, [filterRange, getAuthToken]);
+
+  useEffect(() => {
+    loadHistory();
+  }, [loadHistory]);
+
+  const completedList = historyOrders.filter(
     (o) => o.status === "SERVED" || o.status === "COMPLETED"
   );
 
@@ -33,7 +72,7 @@ export default function KitchenOrderHistoryPage() {
         <div>
           <h1 className="text-xl font-black text-[#121212]">Order History</h1>
           <p className="text-xs text-zinc-500 font-medium">
-            Past kitchen orders log and timestamps
+            Past kitchen orders log and timestamps from live backend
           </p>
         </div>
 
@@ -43,17 +82,42 @@ export default function KitchenOrderHistoryPage() {
               📅
             </span>
             <select
-              value={selectedDate}
-              onChange={(e) => setSelectedDate(e.target.value)}
-              className="bg-zinc-50 border border-zinc-200 rounded-xl pl-8 pr-4 py-2 text-xs font-bold text-[#121212] focus:outline-none focus:border-[#FF6B2C]"
+              value={filterRange}
+              onChange={(e) => setFilterRange(e.target.value)}
+              className="bg-zinc-50 border border-zinc-200 rounded-xl pl-8 pr-4 py-2 text-xs font-bold text-[#121212] focus:outline-none focus:border-[#FF6B2C] cursor-pointer"
             >
-              <option value="12 May 2025">12 May 2025</option>
-              <option value="11 May 2025">11 May 2025</option>
-              <option value="10 May 2025">10 May 2025</option>
+              <option value="all">All History</option>
+              <option value="today">Today</option>
+              <option value="yesterday">Yesterday</option>
+              <option value="7days">Last 7 Days</option>
             </select>
           </div>
+
+          <button
+            onClick={loadHistory}
+            disabled={isLoading}
+            className="px-3.5 py-2 bg-zinc-100 hover:bg-zinc-200 text-zinc-800 rounded-xl text-xs font-bold transition-all disabled:opacity-50 cursor-pointer"
+            title="Refresh history"
+          >
+            {isLoading ? "⏳" : "🔄"}
+          </button>
         </div>
       </div>
+
+      {fetchError && (
+        <div className="bg-amber-50 border border-amber-200 text-amber-800 px-4 py-3 rounded-2xl text-xs font-medium flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span>⚠️</span>
+            <span>{fetchError}</span>
+          </div>
+          <button
+            onClick={loadHistory}
+            className="px-3 py-1 bg-amber-600 text-white rounded-lg text-xs font-bold hover:bg-amber-700"
+          >
+            Retry
+          </button>
+        </div>
+      )}
 
       {/* Orders Table */}
       <div className="bg-white rounded-3xl border border-zinc-200 shadow-xs overflow-hidden">
@@ -72,90 +136,96 @@ export default function KitchenOrderHistoryPage() {
             </thead>
 
             <tbody className="divide-y divide-zinc-100 font-medium">
-              {completedList.length > 0
-                ? completedList.map((order) => {
-                    const itemCount = order.lines.reduce((acc, l) => acc + l.qty, 0);
-                    return (
-                      <tr key={order.id} className="hover:bg-zinc-50/80 transition-colors">
-                        <td className="py-4 px-6 font-extrabold text-[#121212]">
-                          #{order.id}
-                        </td>
-                        <td className="py-4 px-6 font-bold">{order.tableId}</td>
-                        <td className="py-4 px-6">{itemCount} items</td>
-                        <td className="py-4 px-6 font-extrabold text-[#121212]">
-                          {formatPrice(order.total)}
-                        </td>
-                        <td className="py-4 px-6">
-                          <span className="bg-emerald-100 text-emerald-800 text-[11px] font-extrabold px-2.5 py-1 rounded-full">
-                            Served
-                          </span>
-                        </td>
-                        <td className="py-4 px-6 text-zinc-500" suppressHydrationWarning>
-                          {new Date(order.createdAt).toLocaleTimeString([], {
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          })}
-                        </td>
-                        <td className="py-4 px-6 text-right">
-                          <Link
-                            href={`/kitchen/orders/${order.id}`}
-                            className="text-[#FF6B2C] hover:underline font-bold"
-                          >
-                            View →
-                          </Link>
-                        </td>
-                      </tr>
-                    );
-                  })
-                : FALLBACK_HISTORY_ORDERS.map((item, idx) => (
-                    <tr key={idx} className="hover:bg-zinc-50/80 transition-colors">
-                      <td className="py-4 px-6 font-extrabold text-[#121212]">{item.id}</td>
-                      <td className="py-4 px-6 font-bold">{item.table}</td>
-                      <td className="py-4 px-6">{item.items} items</td>
+              {isLoading ? (
+                <tr>
+                  <td colSpan={7} className="py-12 text-center text-zinc-400 font-semibold">
+                    <div className="w-6 h-6 border-2 border-[#FF6B2C] border-t-transparent rounded-full animate-spin mx-auto mb-2" />
+                    <span>Loading completed orders from backend...</span>
+                  </td>
+                </tr>
+              ) : completedList.length > 0 ? (
+                completedList.map((order) => {
+                  const itemCount = order.lines.reduce((acc, l) => acc + l.qty, 0);
+                  const isCompleted = order.status === "COMPLETED";
+
+                  return (
+                    <tr key={order.id} className="hover:bg-zinc-50/80 transition-colors">
                       <td className="py-4 px-6 font-extrabold text-[#121212]">
-                        {formatPrice(item.total)}
+                        #{order.id}
+                      </td>
+                      <td className="py-4 px-6 font-bold">
+                        {order.tableLabel || `Table ${order.tableId}`}
+                      </td>
+                      <td className="py-4 px-6">{itemCount} items</td>
+                      <td className="py-4 px-6 font-extrabold text-[#121212]">
+                        {formatPrice(order.total)}
                       </td>
                       <td className="py-4 px-6">
-                        <span className="bg-emerald-100 text-emerald-800 text-[11px] font-extrabold px-2.5 py-1 rounded-full">
-                          {item.status}
+                        <span
+                          className={`text-[11px] font-extrabold px-2.5 py-1 rounded-full ${
+                            isCompleted
+                              ? "bg-zinc-100 text-zinc-700 border border-zinc-200"
+                              : "bg-emerald-100 text-emerald-800 border border-emerald-200"
+                          }`}
+                        >
+                          {isCompleted ? "Completed" : "Served"}
                         </span>
                       </td>
-                      <td className="py-4 px-6 text-zinc-500">{item.time}</td>
+                      <td className="py-4 px-6 text-zinc-500" suppressHydrationWarning>
+                        {order.createdAt
+                          ? new Date(order.createdAt).toLocaleTimeString([], {
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            })
+                          : "—"}
+                      </td>
                       <td className="py-4 px-6 text-right">
                         <Link
-                          href={`/kitchen/orders/${item.id.replace("#", "")}`}
+                          href={`/kitchen/orders/${order.id}`}
                           className="text-[#FF6B2C] hover:underline font-bold"
                         >
                           View →
                         </Link>
                       </td>
                     </tr>
-                  ))}
+                  );
+                })
+              ) : (
+                <tr>
+                  <td colSpan={7} className="py-12 text-center text-zinc-400 font-medium">
+                    No completed or served orders found for this period.
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
 
-        {/* Pagination Controls */}
+        {/* Pagination / Summary Controls */}
         <div className="bg-[#FAF7F2] border-t border-zinc-200 px-6 py-3 flex items-center justify-between text-xs">
-          <span className="text-zinc-500 font-medium">Showing 1 to 6 of 24 orders</span>
-          <div className="flex items-center gap-1 font-bold">
-            <button className="w-7 h-7 rounded-lg bg-white border border-zinc-200 flex items-center justify-center hover:bg-zinc-100">
-              ‹
-            </button>
-            <button className="w-7 h-7 rounded-lg bg-[#FF6B2C] text-white flex items-center justify-center">
-              1
-            </button>
-            <button className="w-7 h-7 rounded-lg bg-white border border-zinc-200 flex items-center justify-center hover:bg-zinc-100">
-              2
-            </button>
-            <button className="w-7 h-7 rounded-lg bg-white border border-zinc-200 flex items-center justify-center hover:bg-zinc-100">
-              3
-            </button>
-            <span className="px-1 text-zinc-400">...</span>
-            <button className="w-7 h-7 rounded-lg bg-white border border-zinc-200 flex items-center justify-center hover:bg-zinc-100">
-              ›
-            </button>
-          </div>
+          <span className="text-zinc-500 font-medium">
+            Showing {completedList.length > 0 ? `1 to ${completedList.length}` : "0"} of{" "}
+            {completedList.length} orders
+          </span>
+          {completedList.length > 0 && (
+            <div className="flex items-center gap-1 font-bold">
+              <button
+                disabled
+                className="w-7 h-7 rounded-lg bg-white border border-zinc-200 flex items-center justify-center text-zinc-400 opacity-60"
+              >
+                ‹
+              </button>
+              <button className="w-7 h-7 rounded-lg bg-[#FF6B2C] text-white flex items-center justify-center">
+                1
+              </button>
+              <button
+                disabled
+                className="w-7 h-7 rounded-lg bg-white border border-zinc-200 flex items-center justify-center text-zinc-400 opacity-60"
+              >
+                ›
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </div>
