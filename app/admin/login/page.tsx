@@ -3,34 +3,62 @@
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { signInWithEmailAndPassword, signOut } from "firebase/auth";
+import { auth } from "@/src/lib/firebase";
 
 export default function AdminLoginPage() {
   const router = useRouter();
 
-  const [email, setEmail] = useState("owner@cozycafe.com");
-  const [password, setPassword] = useState("••••••••");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [rememberMe, setRememberMe] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
+    setError(null);
 
     try {
-      localStorage.setItem("dinego_admin_token", "owner-token");
-      localStorage.setItem(
-        "dinego_admin_user",
-        JSON.stringify({ email, role: "owner", loginTime: Date.now() })
+      const userCredential = await signInWithEmailAndPassword(
+        auth,
+        email.trim(),
+        password
       );
-      document.cookie = "dinego_owner_session=active; path=/; max-age=86400";
-    } catch (err) {
-      console.warn("Storage error:", err);
-    }
+      const user = userCredential.user;
 
-    setTimeout(() => {
+      // Force refresh token to get latest custom claims
+      const tokenResult = await user.getIdTokenResult(true);
+
+      if (tokenResult.claims.role !== "owner") {
+        await signOut(auth);
+        setError("Access denied. This account does not have owner privileges.");
+        setIsLoading(false);
+        return;
+      }
+
       router.push("/admin/dashboard");
-    }, 400);
+    } catch (err: any) {
+      console.error("Admin login error:", err);
+      let message = "Invalid email or password. Please try again.";
+      if (
+        err?.code === "auth/user-not-found" ||
+        err?.code === "auth/wrong-password" ||
+        err?.code === "auth/invalid-credential"
+      ) {
+        message = "Invalid email or password. Please check your credentials.";
+      } else if (err?.code === "auth/too-many-requests") {
+        message = "Too many failed attempts. Please try again later.";
+      } else if (err?.code === "auth/invalid-email") {
+        message = "Please enter a valid email address.";
+      } else if (err?.message) {
+        message = err.message;
+      }
+      setError(message);
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -102,6 +130,14 @@ export default function AdminLoginPage() {
                 Sign in with your owner credentials
               </p>
             </div>
+
+            {/* Error Message Alert */}
+            {error && (
+              <div className="p-3.5 rounded-2xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold flex items-start gap-2.5">
+                <span className="text-base leading-none">⚠️</span>
+                <span className="leading-relaxed">{error}</span>
+              </div>
+            )}
 
             {/* Login Form */}
             <form onSubmit={handleSubmit} className="space-y-4">

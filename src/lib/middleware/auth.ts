@@ -2,7 +2,9 @@
 // Request authentication and authorization
 
 import { getAuth } from "firebase-admin/auth";
-import { UserClaims } from "@/lib/types";
+import { getApps } from "firebase-admin/app";
+import { getAdminDb, hasFirebaseAdminCredentials } from "@/src/lib/firebase-admin";
+import { UserClaims } from "@/src/lib/types";
 
 export class AuthError extends Error {
   constructor(
@@ -15,78 +17,57 @@ export class AuthError extends Error {
 }
 
 /**
- * Extract and verify Firebase token from request
- * Returns user claims with role, uid, email
+ * Extract and strictly verify Firebase token from request.
+ * Returns user claims with role, uid, email.
+ * 
+ * Rejects missing, malformed, invalid, or expired tokens with 401 Unauthorized.
+ * Strictly uses real decoded Firebase custom claim for role.
+ * No demo tokens or bypasses allowed.
  */
 export async function verifyToken(bearerToken?: string | null): Promise<UserClaims> {
-  if (!bearerToken || !bearerToken.startsWith("Bearer ")) {
-    // In local development or demo mode without explicit header, provide owner role
-    return {
-      uid: "owner_demo_1",
-      email: "owner@cozycafe.com",
-      role: "owner",
-      restaurantId: "cozy_cafe_01",
-    };
+  if (!bearerToken) {
+    throw new AuthError("Missing Authorization header", 401);
+  }
+
+  if (!bearerToken.startsWith("Bearer ")) {
+    throw new AuthError("Malformed Authorization header. Format must be: Bearer <token>", 401);
   }
 
   const token = bearerToken.substring(7).trim();
-
-  // Allow development / demo tokens
-  if (token === "staff-token" || token.includes("staff") || token === "kitchen-demo") {
-    return {
-      uid: "staff_demo_1",
-      email: "staff@cozycafe.com",
-      role: "kitchen",
-      restaurantId: "cozy_cafe_01",
-    };
+  if (!token) {
+    throw new AuthError("Missing token in Authorization header", 401);
   }
 
-  if (token === "owner-token" || token.includes("owner") || token === "admin-demo") {
-    return {
-      uid: "owner_demo_1",
-      email: "owner@cozycafe.com",
-      role: "owner",
-      restaurantId: "cozy_cafe_01",
-    };
+  // Ensure Firebase Admin app is initialized if credentials exist
+  if (getApps().length === 0 && hasFirebaseAdminCredentials()) {
+    getAdminDb();
   }
 
   try {
     const decodedToken = await getAuth().verifyIdToken(token);
 
-    // Check for custom claims (role, restaurantId)
+    // Strictly resolve custom claims (role, restaurantId)
     const role = (decodedToken.role as UserClaims["role"]) || "customer";
 
     return {
       uid: decodedToken.uid,
       email: decodedToken.email,
       role,
-      restaurantId: decodedToken.restaurantId as string,
+      restaurantId: decodedToken.restaurantId as string | undefined,
     };
-  } catch {
-    // If running in development without Firebase, grant role based on token hints
-    if (token.includes("kitchen") || token.includes("staff")) {
-      return {
-        uid: "staff_1",
-        email: "staff@cozycafe.com",
-        role: "kitchen",
-        restaurantId: "cozy_cafe_01",
-      };
-    }
-    return {
-      uid: "owner_demo_1",
-      email: "owner@cozycafe.com",
-      role: "owner",
-      restaurantId: "cozy_cafe_01",
-    };
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "Invalid or expired Firebase ID token";
+    throw new AuthError(`Authentication failed: ${message}`, 401);
   }
 }
 
 /**
- * Extract token from Authorization header
+ * Extract token from Authorization header.
+ * Throws 401 if header is absent.
  */
 export function extractToken(authHeader?: string | null): string {
   if (!authHeader) {
-    return "Bearer owner-token";
+    throw new AuthError("Missing Authorization header", 401);
   }
   return authHeader;
 }
@@ -120,7 +101,7 @@ export function errorResponse(error: unknown, statusCode?: number) {
         error: error.message,
         timestamp: Date.now(),
       }),
-      { status: error.statusCode }
+      { status: error.statusCode, headers: { "Content-Type": "application/json" } }
     );
   }
 
@@ -130,6 +111,6 @@ export function errorResponse(error: unknown, statusCode?: number) {
       error: error instanceof Error ? error.message : "Unknown error",
       timestamp: Date.now(),
     }),
-    { status: statusCode || 500 }
+    { status: statusCode || 500, headers: { "Content-Type": "application/json" } }
   );
 }

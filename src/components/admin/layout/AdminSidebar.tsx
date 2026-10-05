@@ -4,6 +4,9 @@ import React from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 
+import { signOut } from "firebase/auth";
+import { auth } from "@/src/lib/firebase";
+
 interface AdminSidebarProps {
   isMobileOpen?: boolean;
   onMobileClose?: () => void;
@@ -56,8 +59,9 @@ export default function AdminSidebar({
   const pathname = usePathname();
   const router = useRouter();
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
     try {
+      await signOut(auth);
       localStorage.removeItem("dinego_admin_token");
       localStorage.removeItem("dinego_admin_user");
       document.cookie = "dinego_owner_session=; path=/; max-age=0";
