@@ -4,24 +4,25 @@ import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import MenuItemForm from "@/src/components/admin/menu/MenuItemForm";
-import { mockCategories } from "@/src/mock/menuData";
 import { MenuItem, Category } from "@/src/lib/types";
 import { adminFetch } from "@/src/lib/admin-api";
 
 export default function AddMenuItemPage() {
   const router = useRouter();
-  const [categories, setCategories] = useState<Category[]>(mockCategories);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     async function loadCategories() {
       try {
         const json = await adminFetch("/backend-api/categories");
-        if (json?.success && Array.isArray(json.data) && json.data.length > 0) {
+        if (json?.success && Array.isArray(json.data)) {
           setCategories(json.data);
         }
-      } catch (err) {
+      } catch (err: any) {
         console.error("Could not load categories for new menu item:", err);
+        setError("Could not load categories from server. Please reload.");
       }
     }
     loadCategories();
@@ -29,16 +30,18 @@ export default function AddMenuItemPage() {
 
   const handleSave = async (itemData: Omit<MenuItem, "id" | "createdAt" | "updatedAt">) => {
     setIsSubmitting(true);
+    setError(null);
     try {
       await adminFetch("/backend-api/menu-items", {
         method: "POST",
         body: JSON.stringify(itemData),
       });
-    } catch (err) {
+      router.push("/admin/menu");
+    } catch (err: any) {
       console.error("Failed to create menu item on server:", err);
+      setError(err?.message || "Failed to create menu item on server. Please try again.");
     } finally {
       setIsSubmitting(false);
-      router.push("/admin/menu");
     }
   };
 
@@ -48,6 +51,22 @@ export default function AddMenuItemPage() {
 
   return (
     <div className="space-y-6 font-sans pb-16">
+      {/* Error Banner */}
+      {error && (
+        <div className="p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-semibold flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span>⚠️</span>
+            <span>{error}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setError(null)}
+            className="text-rose-600 hover:text-rose-900 font-bold"
+          >
+            ✕
+          </button>
+        </div>
+      )}
       {/* Header Banner */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-6 rounded-3xl border border-zinc-200/80 shadow-xs">
         <div>

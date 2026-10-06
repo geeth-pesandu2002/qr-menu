@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
-import { formatPrice, TopItem } from "@/src/lib/types";
+import React, { useState, useEffect, useMemo } from "react";
+import { formatPrice, TopItem, Order } from "@/src/lib/types";
 import StatCard from "@/src/components/admin/dashboard/StatCard";
 import RevenueChart, { ChartDataPoint } from "@/src/components/admin/reports/RevenueChart";
 import TopItemsReport from "@/src/components/admin/reports/TopItemsReport";
@@ -20,98 +20,227 @@ interface AnalyticsDataset {
   topItems: TopItem[];
 }
 
-const MOCK_ANALYTICS: Record<DateRangeFilter, AnalyticsDataset> = {
-  TODAY: {
-    label: "Today (Live)",
-    totalRevenue: 0,
-    totalOrders: 0,
-    avgOrderValue: 0,
-    completedOrders: 0,
-    pendingOrders: 0,
-    chartData: [],
-    topItems: [],
-  },
-  THIS_WEEK: {
-    label: "This Week (Past 7 Days)",
-    totalRevenue: 0,
-    totalOrders: 0,
-    avgOrderValue: 0,
-    completedOrders: 0,
-    pendingOrders: 0,
-    chartData: [],
-    topItems: [],
-  },
-  THIS_MONTH: {
-    label: "This Month (Current Cycle)",
-    totalRevenue: 0,
-    totalOrders: 0,
-    avgOrderValue: 0,
-    completedOrders: 0,
-    pendingOrders: 0,
-    chartData: [],
-    topItems: [],
-  },
-  CUSTOM: {
-    label: "Custom Period",
-    totalRevenue: 0,
-    totalOrders: 0,
-    avgOrderValue: 0,
-    completedOrders: 0,
-    pendingOrders: 0,
-    chartData: [],
-    topItems: [],
-  },
-};
-
 export default function ReportsPage() {
-  const [analytics, setAnalytics] = useState<Record<DateRangeFilter, AnalyticsDataset>>(MOCK_ANALYTICS);
   const [selectedRange, setSelectedRange] = useState<DateRangeFilter>("TODAY");
-  const [customStartDate, setCustomStartDate] = useState("2026-09-01");
-  const [customEndDate, setCustomEndDate] = useState("2026-09-26");
+  const [customStartDate, setCustomStartDate] = useState(() => {
+    const d = new Date();
+    d.setDate(d.getDate() - 7);
+    return d.toISOString().slice(0, 10);
+  });
+  const [customEndDate, setCustomEndDate] = useState(() => {
+    return new Date().toISOString().slice(0, 10);
+  });
   const [exportNotice, setExportNotice] = useState<string | null>(null);
 
-  useEffect(() => {
-    let isMounted = true;
-    async function loadLiveReportData() {
-      try {
-        const [dashJson, topJson] = await Promise.all([
-          adminFetch("/backend-api/analytics/dashboard"),
-          adminFetch("/backend-api/analytics/top-items"),
-        ]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-        if (dashJson?.success && dashJson.data && isMounted) {
-          const d = dashJson.data;
-          setAnalytics((prev) => ({
-            ...prev,
-            TODAY: {
-              ...prev.TODAY,
-              totalRevenue: d.totalRevenue || prev.TODAY.totalRevenue,
-              totalOrders: d.totalOrders || prev.TODAY.totalOrders,
-              avgOrderValue: d.averageOrderValue || prev.TODAY.avgOrderValue,
-              completedOrders: d.completedOrders || prev.TODAY.completedOrders,
-              pendingOrders: d.pendingOrders || prev.TODAY.pendingOrders,
-            },
-          }));
-        }
+  const [dashboardStats, setDashboardStats] = useState<any>(null);
+  const [backendTopItems, setBackendTopItems] = useState<TopItem[]>([]);
+  const [allOrders, setAllOrders] = useState<Order[]>([]);
 
-        if (topJson?.success && Array.isArray(topJson.data) && topJson.data.length > 0 && isMounted) {
-          setAnalytics((prev) => ({
-            ...prev,
-            TODAY: {
-              ...prev.TODAY,
-              topItems: topJson.data,
-            },
-          }));
-        }
-      } catch (err) {
-        console.error("Could not load live analytics reports:", err);
+  const loadLiveReportData = async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const [dashJson, topJson, ordersJson] = await Promise.all([
+        adminFetch("/backend-api/analytics/dashboard"),
+        adminFetch("/backend-api/analytics/top-items"),
+        adminFetch("/backend-api/orders"),
+      ]);
+
+      if (dashJson?.success && dashJson.data) {
+        setDashboardStats(dashJson.data);
       }
+      if (topJson?.success && Array.isArray(topJson.data)) {
+        setBackendTopItems(topJson.data);
+      }
+      if (ordersJson?.success && Array.isArray(ordersJson.data)) {
+        setAllOrders(ordersJson.data);
+      }
+    } catch (err: any) {
+      console.error("Could not load live analytics reports:", err);
+      setError(err?.message || "Failed to load live analytics reports from backend");
+    } finally {
+      setIsLoading(false);
     }
+  };
 
+  useEffect(() => {
     loadLiveReportData();
   }, []);
 
-  const activeData = analytics[selectedRange];
+  // Compute active dataset based on real orders & stats
+  const activeData: AnalyticsDataset = useMemo(() => {
+    const now = new Date();
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+    const endOfToday = startOfToday + 24 * 60 * 60 * 1000 - 1;
+
+    let rangeLabel = "Today (Live)";
+    let filtered = allOrders;
+
+    if (selectedRange === "TODAY") {
+      rangeLabel = "Today (Live)";
+      filtered = allOrders.filter((o) => {
+        const time = o.createdAt || 0;
+        return time >= startOfToday && time <= endOfToday;
+      });
+    } else if (selectedRange === "THIS_WEEK") {
+      rangeLabel = "This Week (Past 7 Days)";
+      const sevenDaysAgo = now.getTime() - 7 * 24 * 60 * 60 * 1000;
+      filtered = allOrders.filter((o) => (o.createdAt || 0) >= sevenDaysAgo);
+    } else if (selectedRange === "THIS_MONTH") {
+      rangeLabel = "This Month (Current Cycle)";
+      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+      filtered = allOrders.filter((o) => (o.createdAt || 0) >= startOfMonth);
+    } else if (selectedRange === "CUSTOM") {
+      rangeLabel = `Custom (${customStartDate} to ${customEndDate})`;
+      const startCustom = new Date(customStartDate).getTime();
+      const endCustom = new Date(customEndDate).getTime() + 24 * 60 * 60 * 1000 - 1;
+      filtered = allOrders.filter((o) => {
+        const time = o.createdAt || 0;
+        return time >= startCustom && time <= endCustom;
+      });
+    }
+
+    // Top items aggregation from filtered orders (or backendTopItems for TODAY if available)
+    let topItems = backendTopItems;
+    if (selectedRange !== "TODAY" || backendTopItems.length === 0) {
+      const itemMap = new Map<string, { name: string; qty: number; revenue: number }>();
+      filtered.forEach((order) => {
+        (order.lines || []).forEach((line) => {
+          const key = line.itemId || line.name;
+          const existing = itemMap.get(key) || {
+            name: line.name,
+            qty: 0,
+            revenue: 0,
+          };
+          existing.qty += line.qty || 1;
+          existing.revenue += (line.unitPrice || 0) * (line.qty || 1);
+          itemMap.set(key, existing);
+        });
+      });
+      topItems = Array.from(itemMap.entries())
+        .map(([itemId, val]) => ({
+          itemId,
+          name: val.name,
+          qty: val.qty,
+          revenue: val.revenue,
+          trend: "stable" as const,
+        }))
+        .sort((a, b) => b.revenue - a.revenue)
+        .slice(0, 10);
+    }
+
+    // Chart points aggregation
+    let chartData: ChartDataPoint[] = [];
+    if (filtered.length > 0) {
+      if (selectedRange === "TODAY") {
+        const hourlyBuckets: Record<string, { revenue: number; orders: number }> = {
+          "10:00": { revenue: 0, orders: 0 },
+          "12:00": { revenue: 0, orders: 0 },
+          "14:00": { revenue: 0, orders: 0 },
+          "16:00": { revenue: 0, orders: 0 },
+          "18:00": { revenue: 0, orders: 0 },
+          "20:00": { revenue: 0, orders: 0 },
+          "22:00": { revenue: 0, orders: 0 },
+        };
+        filtered.forEach((order) => {
+          const hour = new Date(order.createdAt || 0).getHours();
+          const bucket =
+            hour < 11
+              ? "10:00"
+              : hour < 13
+              ? "12:00"
+              : hour < 15
+              ? "14:00"
+              : hour < 17
+              ? "16:00"
+              : hour < 19
+              ? "18:00"
+              : hour < 21
+              ? "20:00"
+              : "22:00";
+          hourlyBuckets[bucket].revenue += order.total || 0;
+          hourlyBuckets[bucket].orders += 1;
+        });
+        chartData = Object.entries(hourlyBuckets).map(([label, b]) => ({
+          label,
+          revenue: b.revenue,
+          orders: b.orders,
+        }));
+      } else if (selectedRange === "THIS_WEEK") {
+        const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+        const dayBuckets: Record<string, { revenue: number; orders: number }> = {};
+        days.forEach((d) => {
+          dayBuckets[d] = { revenue: 0, orders: 0 };
+        });
+        filtered.forEach((order) => {
+          const dName = days[new Date(order.createdAt || 0).getDay()];
+          dayBuckets[dName].revenue += order.total || 0;
+          dayBuckets[dName].orders += 1;
+        });
+        chartData = days.map((d) => ({
+          label: d,
+          revenue: dayBuckets[d].revenue,
+          orders: dayBuckets[d].orders,
+        }));
+      } else {
+        // Group by date
+        const dateMap = new Map<string, { revenue: number; orders: number }>();
+        filtered.forEach((order) => {
+          const dStr = new Date(order.createdAt || 0).toLocaleDateString("en-US", {
+            month: "short",
+            day: "numeric",
+          });
+          const curr = dateMap.get(dStr) || { revenue: 0, orders: 0 };
+          curr.revenue += order.total || 0;
+          curr.orders += 1;
+          dateMap.set(dStr, curr);
+        });
+        chartData = Array.from(dateMap.entries()).map(([label, b]) => ({
+          label,
+          revenue: b.revenue,
+          orders: b.orders,
+        }));
+      }
+    }
+
+    // Totals
+    let totalRevenue = 0;
+    let totalOrders = 0;
+    let completedOrders = 0;
+    let pendingOrders = 0;
+
+    if (selectedRange === "TODAY" && dashboardStats) {
+      totalRevenue = dashboardStats.totalRevenue ?? 0;
+      totalOrders = dashboardStats.totalOrders ?? 0;
+      completedOrders = dashboardStats.completedOrders ?? 0;
+      pendingOrders = dashboardStats.pendingOrders ?? 0;
+    } else {
+      totalRevenue = filtered.reduce((sum, o) => sum + (o.total || 0), 0);
+      totalOrders = filtered.length;
+      completedOrders = filtered.filter((o) =>
+        ["COMPLETED", "SERVED", "DELIVERED"].includes(o.status)
+      ).length;
+      pendingOrders = filtered.filter((o) =>
+        ["PENDING", "PREPARING", "CONFIRMED"].includes(o.status)
+      ).length;
+    }
+
+    const avgOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
+
+    return {
+      label: rangeLabel,
+      totalRevenue,
+      totalOrders,
+      avgOrderValue,
+      completedOrders,
+      pendingOrders,
+      chartData,
+      topItems,
+    };
+  }, [allOrders, selectedRange, customStartDate, customEndDate, dashboardStats, backendTopItems]);
 
   const handleExport = () => {
     try {
@@ -150,6 +279,23 @@ export default function ReportsPage() {
 
   return (
     <div className="space-y-6">
+      {/* Error Notice Notification Banner */}
+      {error && (
+        <div className="p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-semibold flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span>⚠️</span>
+            <span>{error}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setError(null)}
+            className="text-rose-600 hover:text-black font-bold text-sm ml-4"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
       {/* Page Title & Controls Bar */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-6 rounded-3xl border border-zinc-200/90 shadow-xs">
         <div>
@@ -210,12 +356,23 @@ export default function ReportsPage() {
             </button>
           </div>
 
-          {/* Export Report (Mock UI) */}
+          {/* Refresh Button */}
+          <button
+            type="button"
+            onClick={loadLiveReportData}
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-2xl border border-zinc-200 bg-white hover:bg-zinc-50 text-xs font-bold text-zinc-700 transition-all shadow-xs"
+            title="Refresh analytics data"
+          >
+            <span>🔄</span>
+            <span className="hidden sm:inline">Refresh</span>
+          </button>
+
+          {/* Export Report */}
           <button
             type="button"
             onClick={handleExport}
             className="flex items-center gap-2 px-4 py-2 rounded-2xl border border-zinc-200 bg-white hover:bg-zinc-50 text-xs font-extrabold text-zinc-700 transition-all shadow-xs"
-            title="Download CSV report (Demo UI)"
+            title="Download CSV report"
           >
             <svg
               className="w-4 h-4 text-zinc-500"
@@ -270,60 +427,55 @@ export default function ReportsPage() {
             />
           </div>
           <span className="text-zinc-400 italic">
-            Displaying mock aggregation for custom selection
+            Filtering real records for custom selection
           </span>
         </div>
       )}
 
-      {/* 5 Required Summary Cards */}
+      {/* 5 Summary Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
         {/* 1. Total Revenue */}
         <StatCard
           title="Total Revenue"
-          value={formatPrice(activeData.totalRevenue)}
+          value={isLoading ? "..." : formatPrice(activeData.totalRevenue)}
           subtitle={activeData.label}
           icon="💰"
-          trend={{ value: "+14% vs prev", isPositive: true }}
           accentColor="orange"
         />
 
         {/* 2. Total Orders */}
         <StatCard
           title="Total Orders"
-          value={activeData.totalOrders.toLocaleString()}
+          value={isLoading ? "..." : activeData.totalOrders.toLocaleString()}
           subtitle="Orders placed"
           icon="📦"
-          trend={{ value: "+8% vs prev", isPositive: true }}
           accentColor="green"
         />
 
         {/* 3. Average Order Value */}
         <StatCard
           title="Avg Order Value"
-          value={formatPrice(activeData.avgOrderValue)}
+          value={isLoading ? "..." : formatPrice(activeData.avgOrderValue)}
           subtitle="Per completed order"
           icon="📊"
-          trend={{ value: "+4.2% healthy", isPositive: true }}
           accentColor="gold"
         />
 
         {/* 4. Completed Orders */}
         <StatCard
           title="Completed"
-          value={activeData.completedOrders.toLocaleString()}
+          value={isLoading ? "..." : activeData.completedOrders.toLocaleString()}
           subtitle="Fulfilled tickets"
           icon="✅"
-          trend={{ value: "95% rate", isPositive: true }}
           accentColor="zinc"
         />
 
         {/* 5. Pending Orders */}
         <StatCard
           title="Pending Orders"
-          value={activeData.pendingOrders.toLocaleString()}
+          value={isLoading ? "..." : activeData.pendingOrders.toLocaleString()}
           subtitle="In kitchen/floor"
           icon="⏳"
-          trend={{ value: "In progress", isPositive: false }}
           accentColor="red"
         />
       </div>

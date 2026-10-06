@@ -10,12 +10,13 @@ interface AdminCategoryItem extends Category {
   itemsCount: number;
 }
 
-const INITIAL_MOCK_CATEGORIES: AdminCategoryItem[] = [];
-
 export default function AdminCategoriesPage() {
-  const [categories, setCategories] = useState<AdminCategoryItem[]>(INITIAL_MOCK_CATEGORIES);
+  const [categories, setCategories] = useState<AdminCategoryItem[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<"ALL" | "ACTIVE" | "INACTIVE">("ALL");
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   // Modal / Drawer state
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -23,115 +24,129 @@ export default function AdminCategoriesPage() {
   const [categoryToDelete, setCategoryToDelete] = useState<AdminCategoryItem | null>(null);
 
   // Live category loading from backend
-  useEffect(() => {
-    let isMounted = true;
-    async function loadCategories() {
-      try {
-        const json = await adminFetch("/backend-api/categories");
-        if (json?.success && Array.isArray(json.data) && isMounted) {
-          setCategories(
-            json.data.map((c: Category) => ({
-              ...c,
-              itemsCount: (c as AdminCategoryItem).itemsCount ?? 0,
-            }))
-          );
-        }
-      } catch (err) {
-        console.error("Could not fetch live categories:", err);
+  const loadCategories = async () => {
+    try {
+      const json = await adminFetch("/backend-api/categories");
+      if (json?.success && Array.isArray(json.data)) {
+        setCategories(
+          json.data.map((c: Category) => ({
+            ...c,
+            itemsCount: (c as AdminCategoryItem).itemsCount ?? 0,
+          }))
+        );
       }
+      setError(null);
+    } catch (err: any) {
+      console.error("Could not fetch live categories:", err);
+      setError(err?.message || "Failed to load categories from backend");
+    } finally {
+      setIsLoading(false);
     }
+  };
+
+  useEffect(() => {
     loadCategories();
-    return () => {
-      isMounted = false;
-    };
   }, []);
 
   // Summary Metrics
   const activeCount = categories.filter((c) => c.isActive).length;
+  const inactiveCount = categories.filter((c) => !c.isActive).length;
   const totalItemsAssigned = categories.reduce((sum, c) => sum + c.itemsCount, 0);
-  const mostOrderedCategory = "Burgers • 42% of orders";
 
-  // Toggle active status directly with backend sync
+  // Toggle active status with confirmed backend sync (no premature UI update)
   const handleToggleStatus = async (id: string) => {
-    let newStatus = true;
-    setCategories((prev) =>
-      prev.map((c) => {
-        if (c.id === id) {
-          newStatus = !c.isActive;
-          return { ...c, isActive: newStatus, updatedAt: Date.now() };
-        }
-        return c;
-      })
-    );
+    const currentCat = categories.find((c) => c.id === id);
+    if (!currentCat) return;
+    const newStatus = !currentCat.isActive;
+    setActionError(null);
 
     try {
       await adminFetch(`/backend-api/categories/${id}`, {
         method: "PUT",
         body: JSON.stringify({ isActive: newStatus }),
       });
-    } catch (err) {
+
+      // Confirmed success: update local state
+      setCategories((prev) =>
+        prev.map((c) => {
+          if (c.id === id) {
+            return { ...c, isActive: newStatus, updatedAt: Date.now() };
+          }
+          return c;
+        })
+      );
+    } catch (err: any) {
       console.error("Failed to update category status on server:", err);
+      setActionError(err?.message || "Failed to update category status on server. Please try again.");
     }
   };
 
-  // Save (Create or Edit) with backend sync
+  // Save (Create or Edit) with confirmed backend sync (no premature UI update)
   const handleSaveCategory = async (data: Partial<Category>) => {
+    setActionError(null);
     if (editingCategory) {
-      setCategories((prev) =>
-        prev.map((c) =>
-          c.id === editingCategory.id
-            ? { ...c, ...data, updatedAt: Date.now() }
-            : c
-        )
-      );
-
       try {
         await adminFetch(`/backend-api/categories/${editingCategory.id}`, {
           method: "PUT",
           body: JSON.stringify(data),
         });
-      } catch (err) {
+
+        // Confirmed success: update local state
+        setCategories((prev) =>
+          prev.map((c) =>
+            c.id === editingCategory.id
+              ? { ...c, ...data, updatedAt: Date.now() }
+              : c
+          )
+        );
+        setIsModalOpen(false);
+        setEditingCategory(null);
+      } catch (err: any) {
         console.error("Failed to update category on server:", err);
+        setActionError(err?.message || "Failed to update category on server. Please try again.");
       }
     } else {
-      const newCategory: AdminCategoryItem = {
-        id: `cat_${Date.now()}`,
+      const newCategoryPayload = {
         name: data.name || "Untitled Category",
         icon: data.icon || "🍽️",
         sortOrder: data.sortOrder || categories.length + 1,
         imageUrl: data.imageUrl || null,
         isActive: data.isActive ?? true,
-        itemsCount: 0,
-        createdAt: Date.now(),
-        updatedAt: Date.now(),
       };
-      setCategories((prev) => [...prev, newCategory]);
 
       try {
         await adminFetch("/backend-api/categories", {
           method: "POST",
-          body: JSON.stringify(newCategory),
+          body: JSON.stringify(newCategoryPayload),
         });
-      } catch (err) {
+
+        await loadCategories();
+        setIsModalOpen(false);
+        setEditingCategory(null);
+      } catch (err: any) {
         console.error("Failed to create category on server:", err);
+        setActionError(err?.message || "Failed to create category on server. Please try again.");
       }
     }
-    setEditingCategory(null);
   };
 
-  // Delete with backend sync
+  // Delete with confirmed backend sync (no premature UI update)
   const confirmDelete = async () => {
     if (!categoryToDelete) return;
     const catId = categoryToDelete.id;
-    setCategories((prev) => prev.filter((c) => c.id !== catId));
-    setCategoryToDelete(null);
+    setActionError(null);
 
     try {
       await adminFetch(`/backend-api/categories/${catId}`, {
         method: "DELETE",
       });
-    } catch (err) {
+
+      // Confirmed success: remove from local state
+      setCategories((prev) => prev.filter((c) => c.id !== catId));
+      setCategoryToDelete(null);
+    } catch (err: any) {
       console.error("Failed to delete category on server:", err);
+      setActionError(err?.message || "Failed to delete category on server. Please try again.");
     }
   };
 
@@ -177,15 +192,35 @@ export default function AdminCategoriesPage() {
           </button>
           <button
             type="button"
-            onClick={() => setCategories(INITIAL_MOCK_CATEGORIES)}
+            onClick={loadCategories}
             className="px-3.5 py-2.5 rounded-xl bg-zinc-100 hover:bg-zinc-200 text-zinc-700 text-xs font-bold transition-colors flex items-center gap-1.5"
-            title="Reset categories demo"
+            title="Refresh categories list"
           >
             <span>🔄</span>
-            <span className="hidden sm:inline">Reset</span>
+            <span className="hidden sm:inline">Refresh</span>
           </button>
         </div>
       </div>
+
+      {/* Error Notification Banner */}
+      {(error || actionError) && (
+        <div className="p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-semibold flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span>⚠️</span>
+            <span>{actionError || error}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              setError(null);
+              setActionError(null);
+            }}
+            className="text-rose-600 hover:text-rose-900 font-bold"
+          >
+            ✕
+          </button>
+        </div>
+      )}
 
       {/* 3 Summary Operational Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -225,21 +260,21 @@ export default function AdminCategoriesPage() {
           </div>
         </div>
 
-        {/* Most Ordered Category */}
+        {/* Inactive Categories */}
         <div className="bg-white p-5 rounded-2xl border border-zinc-200/90 shadow-xs flex items-center justify-between">
           <div className="space-y-1">
             <p className="text-xs font-bold text-zinc-500 uppercase tracking-wider">
-              Most Ordered Category
+              Inactive Categories
             </p>
-            <p className="text-xl sm:text-2xl font-black text-[#121212] truncate">
-              {mostOrderedCategory}
+            <p className="text-3xl font-black text-[#121212] truncate">
+              {inactiveCount}
             </p>
-            <p className="text-[11px] text-amber-700 font-semibold">
-              Top customer ticket volume
+            <p className="text-[11px] text-zinc-500 font-semibold">
+              Hidden from customer view
             </p>
           </div>
-          <div className="w-12 h-12 rounded-2xl bg-amber-50 text-[#F4B400] flex items-center justify-center text-2xl font-bold flex-shrink-0">
-            🔥
+          <div className="w-12 h-12 rounded-2xl bg-zinc-100 text-zinc-600 flex items-center justify-center text-2xl font-bold flex-shrink-0">
+            ⏸️
           </div>
         </div>
       </div>

@@ -18,28 +18,30 @@ export default function QRCodeModal({
   const [copied, setCopied] = useState(false);
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
   const [isLoadingQr, setIsLoadingQr] = useState(false);
+  const [qrError, setQrError] = useState<string | null>(null);
+
+  const loadQr = async () => {
+    if (!table) return;
+    setIsLoadingQr(true);
+    setQrError(null);
+    try {
+      const json = await adminFetch(`/backend-api/qr-code?tableId=${table.id}`);
+      if (json?.success && json.data?.dataUrl) {
+        setQrDataUrl(json.data.dataUrl);
+      } else {
+        setQrError("Failed to generate QR code from server");
+      }
+    } catch (e: any) {
+      console.error("Could not load real QR code:", e);
+      setQrError(e?.message || "QR code generation failed");
+    } finally {
+      setIsLoadingQr(false);
+    }
+  };
 
   useEffect(() => {
     if (!isOpen || !table) return;
-    const currentTableId = table.id;
-    let isMounted = true;
-    async function loadQr() {
-      setIsLoadingQr(true);
-      try {
-        const json = await adminFetch(`/backend-api/qr-code?tableId=${currentTableId}`);
-        if (json?.success && json.data?.dataUrl && isMounted) {
-          setQrDataUrl(json.data.dataUrl);
-        }
-      } catch (e) {
-        console.error("Could not load real QR code:", e);
-      } finally {
-        if (isMounted) setIsLoadingQr(false);
-      }
-    }
     loadQr();
-    return () => {
-      isMounted = false;
-    };
   }, [isOpen, table]);
 
   if (!isOpen || !table) return null;
@@ -94,50 +96,33 @@ export default function QRCodeModal({
                 <div className="w-8 h-8 rounded-full border-2 border-[#FF6B2C] border-t-transparent animate-spin" />
                 <span className="text-[10px] text-zinc-400 font-bold">Generating QR...</span>
               </div>
+            ) : qrError ? (
+              <div className="flex flex-col items-center justify-center p-3 text-center space-y-2">
+                <span className="text-2xl">⚠️</span>
+                <p className="text-[11px] font-bold text-rose-600">QR Code Unavailable</p>
+                <p className="text-[10px] text-zinc-400 max-w-[130px] line-clamp-2">{qrError}</p>
+                <button
+                  type="button"
+                  onClick={loadQr}
+                  className="px-2.5 py-1 rounded-lg bg-zinc-100 hover:bg-zinc-200 text-zinc-700 text-[10px] font-bold transition-colors"
+                >
+                  Retry
+                </button>
+              </div>
             ) : qrDataUrl ? (
               <img
                 src={qrDataUrl}
                 alt={`${table.label} Live QR Code`}
                 className="w-full h-full object-contain rounded-xl"
               />
-            ) : (
-              /* SVG Geometric QR Fallback */
-              <svg
-                viewBox="0 0 100 100"
-                className="w-full h-full text-zinc-800"
-                fill="currentColor"
-              >
-                {/* Corner position markers */}
-                <rect x="5" y="5" width="26" height="26" rx="4" fill="none" stroke="currentColor" strokeWidth="5" />
-                <rect x="11" y="11" width="14" height="14" rx="2" />
-
-                <rect x="69" y="5" width="26" height="26" rx="4" fill="none" stroke="currentColor" strokeWidth="5" />
-                <rect x="75" y="11" width="14" height="14" rx="2" />
-
-                <rect x="5" y="69" width="26" height="26" rx="4" fill="none" stroke="currentColor" strokeWidth="5" />
-                <rect x="11" y="75" width="14" height="14" rx="2" />
-
-                {/* Data blocks */}
-                <rect x="38" y="10" width="8" height="8" rx="1" />
-                <rect x="52" y="14" width="8" height="8" rx="1" />
-                <rect x="42" y="24" width="8" height="8" rx="1" />
-                <rect x="12" y="40" width="8" height="8" rx="1" />
-                <rect x="26" y="44" width="8" height="8" rx="1" />
-                <rect x="40" y="40" width="16" height="16" rx="3" fill="#FF6B2C" />
-                <rect x="64" y="38" width="8" height="8" rx="1" />
-                <rect x="78" y="44" width="8" height="8" rx="1" />
-                <rect x="38" y="66" width="8" height="8" rx="1" />
-                <rect x="52" y="72" width="8" height="8" rx="1" />
-                <rect x="68" y="64" width="8" height="8" rx="1" />
-                <rect x="78" y="76" width="8" height="8" rx="1" />
-                <rect x="62" y="82" width="8" height="8" rx="1" />
-              </svg>
-            )}
+            ) : null}
 
             {/* Live QR Badge */}
-            <span className="absolute bottom-1.5 px-2 py-0.5 rounded-full bg-zinc-900/90 text-white text-[9px] font-extrabold uppercase tracking-wider backdrop-blur-xs">
-              {qrDataUrl ? "Live QR" : "QR Token"}
-            </span>
+            {!isLoadingQr && !qrError && qrDataUrl && (
+              <span className="absolute bottom-1.5 px-2 py-0.5 rounded-full bg-zinc-900/90 text-white text-[9px] font-extrabold uppercase tracking-wider backdrop-blur-xs">
+                Live QR
+              </span>
+            )}
           </div>
 
           <div className="text-center space-y-0.5">

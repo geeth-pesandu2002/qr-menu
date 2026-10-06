@@ -10,6 +10,7 @@ import RestaurantInfoSettings, {
 import AccountSettings, {
   AccountSettingsState,
 } from "@/src/components/admin/settings/AccountSettings";
+import { auth } from "@/src/lib/firebase";
 
 type SettingsTab = "GENERAL" | "RESTAURANT_INFO" | "ACCOUNT";
 
@@ -58,93 +59,39 @@ export default function SettingsPage() {
     type: "success" | "info" | "error";
   } | null>(null);
 
-  // Load live settings from backend
-  const loadSettings = async () => {
-    try {
-      const res = await fetch("/api/settings");
-      if (res.ok) {
-        const json = await res.json();
-        if (json.success && json.data) {
-          const d = json.data;
-          setGeneral((prev) => ({
-            ...prev,
-            restaurantName: d.restaurantName || prev.restaurantName,
-            contactEmail: d.contactEmail || prev.contactEmail,
-            phoneNumber: d.phoneNumber || prev.phoneNumber,
-            currency: d.currency || prev.currency,
-            serviceCharge: d.serviceCharge ?? prev.serviceCharge,
-            qrOrderingEnabled: d.qrOrderingEnabled ?? prev.qrOrderingEnabled,
-            openingHours: d.openingHours || prev.openingHours,
-          }));
-          setInfo((prev) => ({
-            ...prev,
-            restaurantName: d.restaurantName || prev.restaurantName,
-            branchName: d.branchName || prev.branchName,
-            contactEmail: d.contactEmail || prev.contactEmail,
-            phoneNumber: d.phoneNumber || prev.phoneNumber,
-            address: d.address || prev.address,
-            city: d.city || prev.city,
-            postalCode: d.postalCode || prev.postalCode,
-            country: d.country || prev.country,
-            coverImageUrl: d.coverImageUrl || prev.coverImageUrl,
-            logoUrl: d.logoUrl || prev.logoUrl,
-          }));
-        }
-      }
-    } catch (err) {
-      console.warn("Could not load live settings:", err);
-    }
-  };
-
+  // Sync account details with current Firebase auth user if available
   useEffect(() => {
-    loadSettings();
+    const user = auth.currentUser;
+    if (user) {
+      setAccount({
+        displayName: user.displayName || "Restaurant Owner",
+        email: user.email || "owner@cozycafe.com",
+        role: "owner",
+      });
+    }
   }, []);
 
-  const handleSave = async () => {
+  const handleSave = () => {
     setIsSaving(true);
-    try {
-      const payload = {
-        ...general,
-        ...info,
-      };
-      const res = await fetch("/api/settings", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: "Bearer owner-token",
-        },
-        body: JSON.stringify(payload),
-      });
-
-      if (res.ok) {
-        setStatusMessage({
-          text: "Restaurant settings successfully saved to live database!",
-          type: "success",
-        });
-      } else {
-        setStatusMessage({
-          text: "Saved locally, server responded with error.",
-          type: "info",
-        });
-      }
-    } catch (err) {
-      console.warn("Failed to persist settings:", err);
+    // Note: The deployed backend currently does not expose a settings endpoint.
+    // Do not invent an endpoint or pretend a remote save succeeded.
+    setTimeout(() => {
+      setIsSaving(false);
       setStatusMessage({
-        text: "Saved locally (offline mode active)",
+        text: "Backend settings persistence is currently unavailable on this server. Settings cannot be persisted remotely.",
         type: "info",
       });
-    } finally {
-      setIsSaving(false);
       setTimeout(() => {
         setStatusMessage(null);
-      }, 4000);
-    }
+      }, 5000);
+    }, 300);
   };
 
   const handleDiscard = () => {
-    loadSettings();
+    setGeneral(INITIAL_GENERAL);
+    setInfo(INITIAL_RESTAURANT_INFO);
     setStatusMessage({
-      text: "Changes discarded. Reset to saved settings.",
+      text: "Changes discarded. Reset to default settings.",
       type: "info",
     });
     setTimeout(() => {
@@ -253,7 +200,7 @@ export default function SettingsPage() {
       {/* Save & Discard Actions Bar */}
       <div className="bg-white p-4 sm:p-5 rounded-3xl border border-zinc-200/90 shadow-xs flex flex-wrap items-center justify-between gap-4">
         <p className="text-xs text-zinc-500 font-medium">
-          Settings are stored in mock memory for demonstration purposes.
+          Backend settings persistence is currently unavailable on this server. Settings cannot be persisted remotely.
         </p>
 
         <div className="flex items-center gap-3">

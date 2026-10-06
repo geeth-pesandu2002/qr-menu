@@ -6,13 +6,10 @@ import { Order, OrderStatus, formatPrice } from "@/src/lib/types";
 import OrderCard from "@/src/components/admin/orders/OrderCard";
 import { adminFetch } from "@/src/lib/admin-api";
 
-// Initial orders strictly adhering to existing domain Order and OrderStatus types
-const INITIAL_MOCK_ORDERS: Order[] = [];
-
 type FilterTab = "ALL" | OrderStatus;
 
 const FILTER_TABS: { id: FilterTab; label: string }[] = [
-  { id: "ALL", label: "All" },
+  { id: "ALL", label: "All Orders" },
   { id: "RECEIVED", label: "Received" },
   { id: "PREPARING", label: "Preparing" },
   { id: "SERVED", label: "Served" },
@@ -21,68 +18,80 @@ const FILTER_TABS: { id: FilterTab; label: string }[] = [
 ];
 
 export default function AdminOrdersPage() {
-  const [orders, setOrders] = useState<Order[]>(INITIAL_MOCK_ORDERS);
+  const [orders, setOrders] = useState<Order[]>([]);
   const [activeTab, setActiveTab] = useState<FilterTab>("ALL");
   const [searchQuery, setSearchQuery] = useState<string>("");
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   // Live order polling from backend
-  useEffect(() => {
-    let isMounted = true;
-    async function fetchOrders() {
-      try {
-        const json = await adminFetch("/backend-api/orders");
-        if (json?.success && Array.isArray(json.data) && isMounted) {
-          setOrders(json.data);
-        }
-      } catch (err) {
-        console.error("Could not fetch live orders for admin:", err);
+  const fetchOrders = async () => {
+    try {
+      const json = await adminFetch("/backend-api/orders");
+      if (json?.success && Array.isArray(json.data)) {
+        setOrders(json.data);
       }
+      setError(null);
+    } catch (err: any) {
+      console.error("Could not fetch live orders for admin:", err);
+      setError(err?.message || "Failed to fetch live orders from backend");
+    } finally {
+      setIsLoading(false);
     }
+  };
 
+  useEffect(() => {
     fetchOrders();
     const interval = setInterval(fetchOrders, 4000);
     return () => {
-      isMounted = false;
       clearInterval(interval);
     };
   }, []);
 
-  // Status transition handler with live backend sync
+  // Status transition handler with confirmed backend sync (no premature UI update)
   const handleStatusTransition = async (orderId: string, nextStatus: OrderStatus) => {
-    setOrders((prev) =>
-      prev.map((order) => {
-        if (order.id === orderId) {
-          return {
-            ...order,
-            status: nextStatus,
-            updatedAt: Date.now(),
-            statusHistory: [
-              ...(order.statusHistory || []),
-              {
-                status: nextStatus,
-                changedAt: Date.now(),
-                changedBy: "owner",
-              },
-            ],
-          };
-        }
-        return order;
-      })
-    );
-
+    setActionError(null);
     try {
       await adminFetch(`/backend-api/orders/${orderId}`, {
         method: "PATCH",
         body: JSON.stringify({ status: nextStatus }),
       });
-    } catch (err) {
+
+      // Confirmed success: update local state
+      setOrders((prev) =>
+        prev.map((order) => {
+          if (order.id === orderId) {
+            return {
+              ...order,
+              status: nextStatus,
+              updatedAt: Date.now(),
+              statusHistory: [
+                ...(order.statusHistory || []),
+                {
+                  status: nextStatus,
+                  changedAt: Date.now(),
+                  changedBy: "owner",
+                },
+              ],
+            };
+          }
+          return order;
+        })
+      );
+    } catch (err: any) {
       console.error("Failed to persist order status transition:", err);
+      setActionError(err?.message || "Failed to update order status on server. Please try again.");
     }
   };
 
   // Compute live counts
   const activeOrdersCount = orders.filter(
     (o) => o.status === "RECEIVED" || o.status === "PREPARING"
+  ).length;
+
+  const completedOrdersCount = orders.filter(
+    (o) => o.status === "COMPLETED"
   ).length;
 
   const servedOrdersCount = orders.filter(
@@ -130,15 +139,36 @@ export default function AdminOrdersPage() {
             <span>Dashboard</span>
           </Link>
           <button
-            onClick={() => setOrders(INITIAL_MOCK_ORDERS)}
-            className="px-4 py-2.5 rounded-xl bg-[#FF6B2C]/10 hover:bg-[#FF6B2C]/20 text-[#FF6B2C] text-xs font-bold transition-colors flex items-center gap-1.5"
-            title="Reset mock orders"
+            type="button"
+            onClick={fetchOrders}
+            className="px-4 py-2.5 rounded-xl bg-zinc-100 hover:bg-zinc-200 text-zinc-700 text-xs font-bold transition-colors flex items-center gap-1.5"
+            title="Refresh live orders"
           >
             <span>🔄</span>
-            <span>Reset Demo</span>
+            <span>Refresh</span>
           </button>
         </div>
       </div>
+
+      {/* Error Banners */}
+      {(error || actionError) && (
+        <div className="p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-semibold flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span>⚠️</span>
+            <span>{actionError || error}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              setError(null);
+              setActionError(null);
+            }}
+            className="text-rose-600 hover:text-rose-900 font-bold"
+          >
+            ✕
+          </button>
+        </div>
+      )}
 
       {/* Summary Operational Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -160,21 +190,21 @@ export default function AdminOrdersPage() {
           </div>
         </div>
 
-        {/* Average Preparation Time */}
+        {/* Completed Orders Summary */}
         <div className="bg-white p-5 rounded-2xl border border-zinc-200/90 shadow-xs flex items-center justify-between">
           <div className="space-y-1">
             <p className="text-xs font-bold text-zinc-500 uppercase tracking-wider">
-              Avg. Prep Time
+              Completed Orders
             </p>
             <p className="text-3xl font-black text-[#121212]">
-              14 mins
+              {completedOrdersCount}
             </p>
             <p className="text-[11px] text-emerald-600 font-semibold">
-              ↓ 2m faster than target
+              Billed & fulfilled tickets
             </p>
           </div>
           <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-[#198754] flex items-center justify-center text-2xl font-bold flex-shrink-0">
-            ⚡
+            ✓
           </div>
         </div>
 
