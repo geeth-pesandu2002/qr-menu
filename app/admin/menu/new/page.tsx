@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import MenuItemForm from "@/src/components/admin/menu/MenuItemForm";
 import { mockCategories } from "@/src/mock/menuData";
 import { MenuItem, Category } from "@/src/lib/types";
+import { adminFetch } from "@/src/lib/admin-api";
 
 export default function AddMenuItemPage() {
   const router = useRouter();
@@ -15,15 +16,12 @@ export default function AddMenuItemPage() {
   useEffect(() => {
     async function loadCategories() {
       try {
-        const res = await fetch("/api/categories");
-        if (res.ok) {
-          const json = await res.json();
-          if (json.success && Array.isArray(json.data) && json.data.length > 0) {
-            setCategories(json.data);
-          }
+        const json = await adminFetch("/backend-api/categories");
+        if (json?.success && Array.isArray(json.data) && json.data.length > 0) {
+          setCategories(json.data);
         }
       } catch (err) {
-        console.warn("Could not load categories for new menu item:", err);
+        console.error("Could not load categories for new menu item:", err);
       }
     }
     loadCategories();
@@ -32,16 +30,12 @@ export default function AddMenuItemPage() {
   const handleSave = async (itemData: Omit<MenuItem, "id" | "createdAt" | "updatedAt">) => {
     setIsSubmitting(true);
     try {
-      await fetch("/api/menu-items", {
+      await adminFetch("/backend-api/menu-items", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: "Bearer owner-token",
-        },
         body: JSON.stringify(itemData),
       });
     } catch (err) {
-      console.warn("Failed to create menu item on server:", err);
+      console.error("Failed to create menu item on server:", err);
     } finally {
       setIsSubmitting(false);
       router.push("/admin/menu");

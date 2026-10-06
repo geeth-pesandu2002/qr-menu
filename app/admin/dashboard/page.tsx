@@ -10,6 +10,7 @@ import {
 } from "@/src/lib/types";
 import StatCard from "@/src/components/admin/dashboard/StatCard";
 import OrderStatusBadge from "@/src/components/admin/orders/OrderStatusBadge";
+import { adminFetch } from "@/src/lib/admin-api";
 
 // Dashboard Statistics matching DashboardStats interface
 const INITIAL_DASHBOARD_STATS: DashboardStats = {
@@ -52,26 +53,18 @@ export default function AdminDashboardPage() {
     let isMounted = true;
     async function loadDashboard() {
       try {
-        const [statsRes, ordersRes] = await Promise.all([
-          fetch("/api/analytics/dashboard", {
-            headers: { Authorization: "Bearer owner-token" },
-          }),
-          fetch("/api/orders"),
+        const [statsJson, ordersJson] = await Promise.all([
+          adminFetch("/backend-api/analytics/dashboard"),
+          adminFetch("/backend-api/orders"),
         ]);
-        if (statsRes.ok) {
-          const statsJson = await statsRes.json();
-          if (statsJson.success && statsJson.data && isMounted) {
-            setStats(statsJson.data);
-          }
+        if (statsJson?.success && statsJson?.data && isMounted) {
+          setStats(statsJson.data);
         }
-        if (ordersRes.ok) {
-          const ordersJson = await ordersRes.json();
-          if (ordersJson.success && Array.isArray(ordersJson.data) && ordersJson.data.length > 0 && isMounted) {
-            setRecentOrders(ordersJson.data.slice(0, 8));
-          }
+        if (ordersJson?.success && Array.isArray(ordersJson?.data) && ordersJson.data.length > 0 && isMounted) {
+          setRecentOrders(ordersJson.data.slice(0, 8));
         }
       } catch (err) {
-        console.warn("Could not load live analytics:", err);
+        console.error("Could not load live analytics:", err);
       }
     }
     loadDashboard();

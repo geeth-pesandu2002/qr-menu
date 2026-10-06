@@ -50,12 +50,19 @@ export async function adminFetch<T = any>(
     );
   }
 
-  const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || "/backend-api";
+  const baseUrl = (process.env.NEXT_PUBLIC_API_BASE_URL || "/backend-api").replace(/\/$/, "");
   const { headers = {}, params, ...fetchInit } = options;
+
+  let cleanEndpoint = endpoint.startsWith("/") ? endpoint : `/${endpoint}`;
+  if (cleanEndpoint.startsWith("/backend-api/")) {
+    cleanEndpoint = cleanEndpoint.replace(/^\/backend-api/, "");
+  } else if (cleanEndpoint === "/backend-api") {
+    cleanEndpoint = "";
+  }
 
   let url = endpoint.startsWith("http://") || endpoint.startsWith("https://")
     ? endpoint
-    : `${baseUrl}${endpoint.startsWith("/") ? endpoint : `/${endpoint}`}`;
+    : `${baseUrl}${cleanEndpoint}`;
 
   if (params) {
     const searchParams = new URLSearchParams();

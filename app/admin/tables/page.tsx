@@ -6,6 +6,7 @@ import { Table } from "@/src/lib/types";
 import TableCard from "@/src/components/admin/tables/TableCard";
 import TableModal from "@/src/components/admin/tables/TableModal";
 import QRCodeModal from "@/src/components/admin/tables/QRCodeModal";
+import { adminFetch } from "@/src/lib/admin-api";
 
 const INITIAL_MOCK_TABLES: Table[] = [
   {
@@ -106,15 +107,12 @@ export default function AdminTablesPage() {
     let isMounted = true;
     async function loadTables() {
       try {
-        const res = await fetch("/api/tables");
-        if (res.ok) {
-          const json = await res.json();
-          if (json.success && Array.isArray(json.data) && isMounted) {
-            setTables(json.data);
-          }
+        const json = await adminFetch("/backend-api/tables");
+        if (json?.success && Array.isArray(json.data) && isMounted) {
+          setTables(json.data);
         }
       } catch (err) {
-        console.warn("Could not fetch live tables:", err);
+        console.error("Could not fetch live tables:", err);
       }
     }
     loadTables();
@@ -143,16 +141,12 @@ export default function AdminTablesPage() {
     );
 
     try {
-      await fetch(`/api/tables/${tableId}`, {
+      await adminFetch(`/backend-api/tables/${tableId}`, {
         method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: "Bearer owner-token",
-        },
         body: JSON.stringify({ isActive: newStatus }),
       });
     } catch (err) {
-      console.warn("Failed to update table status on server:", err);
+      console.error("Failed to update table status on server:", err);
     }
   };
 
@@ -168,16 +162,12 @@ export default function AdminTablesPage() {
       );
 
       try {
-        await fetch(`/api/tables/${editingTable.id}`, {
+        await adminFetch(`/backend-api/tables/${editingTable.id}`, {
           method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: "Bearer owner-token",
-          },
           body: JSON.stringify(data),
         });
       } catch (err) {
-        console.warn("Failed to update table on server:", err);
+        console.error("Failed to update table on server:", err);
       }
     } else {
       const newNum = tables.length + 1;
@@ -195,16 +185,12 @@ export default function AdminTablesPage() {
       setTables((prev) => [...prev, newTable]);
 
       try {
-        await fetch("/api/tables", {
+        await adminFetch("/backend-api/tables", {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: "Bearer owner-token",
-          },
           body: JSON.stringify(newTable),
         });
       } catch (err) {
-        console.warn("Failed to create table on server:", err);
+        console.error("Failed to create table on server:", err);
       }
     }
     setEditingTable(null);
@@ -218,14 +204,11 @@ export default function AdminTablesPage() {
     setTableToDelete(null);
 
     try {
-      await fetch(`/api/tables/${tId}`, {
+      await adminFetch(`/backend-api/tables/${tId}`, {
         method: "DELETE",
-        headers: {
-          Authorization: "Bearer owner-token",
-        },
       });
     } catch (err) {
-      console.warn("Failed to delete table on server:", err);
+      console.error("Failed to delete table on server:", err);
     }
   };
 

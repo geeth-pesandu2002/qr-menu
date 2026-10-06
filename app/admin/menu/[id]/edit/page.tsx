@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import MenuItemForm from "@/src/components/admin/menu/MenuItemForm";
 import { mockCategories, mockMenuItems } from "@/src/mock/menuData";
 import { MenuItem, Category } from "@/src/lib/types";
+import { adminFetch } from "@/src/lib/admin-api";
 
 // Fallback demo item if an unknown ID or 'demo-item' is accessed
 const DEFAULT_FALLBACK_ITEM: MenuItem = {
@@ -48,24 +49,18 @@ export default function EditMenuItemPage({
     let isMounted = true;
     async function loadItemAndCategories() {
       try {
-        const [itemRes, catRes] = await Promise.all([
-          fetch(`/api/menu-items/${itemId}`),
-          fetch("/api/categories"),
+        const [itemJson, catJson] = await Promise.all([
+          adminFetch(`/backend-api/menu-items/${itemId}`),
+          adminFetch("/backend-api/categories"),
         ]);
-        if (itemRes.ok) {
-          const itemJson = await itemRes.json();
-          if (itemJson.success && itemJson.data && isMounted) {
-            setItem(itemJson.data);
-          }
+        if (itemJson?.success && itemJson.data && isMounted) {
+          setItem(itemJson.data);
         }
-        if (catRes.ok) {
-          const catJson = await catRes.json();
-          if (catJson.success && Array.isArray(catJson.data) && isMounted) {
-            setCategories(catJson.data);
-          }
+        if (catJson?.success && Array.isArray(catJson.data) && isMounted) {
+          setCategories(catJson.data);
         }
       } catch (err) {
-        console.warn("Could not load item details for edit:", err);
+        console.error("Could not load item details for edit:", err);
       }
     }
     loadItemAndCategories();
@@ -77,16 +72,12 @@ export default function EditMenuItemPage({
   const handleUpdate = async (itemData: Omit<MenuItem, "id" | "createdAt" | "updatedAt">) => {
     setIsUpdating(true);
     try {
-      await fetch(`/api/menu-items/${itemId}`, {
+      await adminFetch(`/backend-api/menu-items/${itemId}`, {
         method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: "Bearer owner-token",
-        },
         body: JSON.stringify(itemData),
       });
     } catch (err) {
-      console.warn("Failed to persist item update:", err);
+      console.error("Failed to persist item update:", err);
     } finally {
       setIsUpdating(false);
       router.push("/admin/menu");

@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { Order, OrderStatus, formatPrice } from "@/src/lib/types";
 import OrderCard from "@/src/components/admin/orders/OrderCard";
+import { adminFetch } from "@/src/lib/admin-api";
 
 // Initial orders strictly adhering to existing domain Order and OrderStatus types
 const INITIAL_MOCK_ORDERS: Order[] = [];
@@ -29,15 +30,12 @@ export default function AdminOrdersPage() {
     let isMounted = true;
     async function fetchOrders() {
       try {
-        const res = await fetch("/api/orders");
-        if (res.ok) {
-          const json = await res.json();
-          if (json.success && Array.isArray(json.data) && isMounted) {
-            setOrders(json.data);
-          }
+        const json = await adminFetch("/backend-api/orders");
+        if (json?.success && Array.isArray(json.data) && isMounted) {
+          setOrders(json.data);
         }
       } catch (err) {
-        console.warn("Could not fetch live orders for admin:", err);
+        console.error("Could not fetch live orders for admin:", err);
       }
     }
 
@@ -73,16 +71,12 @@ export default function AdminOrdersPage() {
     );
 
     try {
-      await fetch(`/api/orders/${orderId}`, {
+      await adminFetch(`/backend-api/orders/${orderId}`, {
         method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: "Bearer owner-token",
-        },
         body: JSON.stringify({ status: nextStatus }),
       });
     } catch (err) {
-      console.warn("Failed to persist order status transition:", err);
+      console.error("Failed to persist order status transition:", err);
     }
   };
 

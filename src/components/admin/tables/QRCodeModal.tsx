@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { Table } from "@/src/lib/types";
+import { adminFetch } from "@/src/lib/admin-api";
 
 interface QRCodeModalProps {
   table: Table | null;
@@ -25,17 +26,12 @@ export default function QRCodeModal({
     async function loadQr() {
       setIsLoadingQr(true);
       try {
-        const res = await fetch(`/api/qr-code?tableId=${currentTableId}`, {
-          headers: { Authorization: "Bearer owner-token" },
-        });
-        if (res.ok) {
-          const json = await res.json();
-          if (json.success && json.data?.dataUrl && isMounted) {
-            setQrDataUrl(json.data.dataUrl);
-          }
+        const json = await adminFetch(`/backend-api/qr-code?tableId=${currentTableId}`);
+        if (json?.success && json.data?.dataUrl && isMounted) {
+          setQrDataUrl(json.data.dataUrl);
         }
       } catch (e) {
-        console.warn("Could not load real QR code:", e);
+        console.error("Could not load real QR code:", e);
       } finally {
         if (isMounted) setIsLoadingQr(false);
       }

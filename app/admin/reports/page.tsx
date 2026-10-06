@@ -5,6 +5,7 @@ import { formatPrice, TopItem } from "@/src/lib/types";
 import StatCard from "@/src/components/admin/dashboard/StatCard";
 import RevenueChart, { ChartDataPoint } from "@/src/components/admin/reports/RevenueChart";
 import TopItemsReport from "@/src/components/admin/reports/TopItemsReport";
+import { adminFetch } from "@/src/lib/admin-api";
 
 type DateRangeFilter = "TODAY" | "THIS_WEEK" | "THIS_MONTH" | "CUSTOM";
 
@@ -73,43 +74,37 @@ export default function ReportsPage() {
     let isMounted = true;
     async function loadLiveReportData() {
       try {
-        const [dashRes, topRes] = await Promise.all([
-          fetch("/api/analytics/dashboard", { headers: { Authorization: "Bearer owner-token" } }),
-          fetch("/api/analytics/top-items", { headers: { Authorization: "Bearer owner-token" } }),
+        const [dashJson, topJson] = await Promise.all([
+          adminFetch("/backend-api/analytics/dashboard"),
+          adminFetch("/backend-api/analytics/top-items"),
         ]);
 
-        if (dashRes.ok) {
-          const dashJson = await dashRes.json();
-          if (dashJson.success && dashJson.data && isMounted) {
-            const d = dashJson.data;
-            setAnalytics((prev) => ({
-              ...prev,
-              TODAY: {
-                ...prev.TODAY,
-                totalRevenue: d.totalRevenue || prev.TODAY.totalRevenue,
-                totalOrders: d.totalOrders || prev.TODAY.totalOrders,
-                avgOrderValue: d.averageOrderValue || prev.TODAY.avgOrderValue,
-                completedOrders: d.completedOrders || prev.TODAY.completedOrders,
-                pendingOrders: d.pendingOrders || prev.TODAY.pendingOrders,
-              },
-            }));
-          }
+        if (dashJson?.success && dashJson.data && isMounted) {
+          const d = dashJson.data;
+          setAnalytics((prev) => ({
+            ...prev,
+            TODAY: {
+              ...prev.TODAY,
+              totalRevenue: d.totalRevenue || prev.TODAY.totalRevenue,
+              totalOrders: d.totalOrders || prev.TODAY.totalOrders,
+              avgOrderValue: d.averageOrderValue || prev.TODAY.avgOrderValue,
+              completedOrders: d.completedOrders || prev.TODAY.completedOrders,
+              pendingOrders: d.pendingOrders || prev.TODAY.pendingOrders,
+            },
+          }));
         }
 
-        if (topRes.ok) {
-          const topJson = await topRes.json();
-          if (topJson.success && Array.isArray(topJson.data) && topJson.data.length > 0 && isMounted) {
-            setAnalytics((prev) => ({
-              ...prev,
-              TODAY: {
-                ...prev.TODAY,
-                topItems: topJson.data,
-              },
-            }));
-          }
+        if (topJson?.success && Array.isArray(topJson.data) && topJson.data.length > 0 && isMounted) {
+          setAnalytics((prev) => ({
+            ...prev,
+            TODAY: {
+              ...prev.TODAY,
+              topItems: topJson.data,
+            },
+          }));
         }
       } catch (err) {
-        console.warn("Could not load live analytics reports:", err);
+        console.error("Could not load live analytics reports:", err);
       }
     }
 

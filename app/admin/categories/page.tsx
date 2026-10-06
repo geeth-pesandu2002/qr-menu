@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { Category } from "@/src/lib/types";
 import CategoryModal from "@/src/components/admin/categories/CategoryModal";
+import { adminFetch } from "@/src/lib/admin-api";
 
 interface AdminCategoryItem extends Category {
   itemsCount: number;
@@ -26,20 +27,17 @@ export default function AdminCategoriesPage() {
     let isMounted = true;
     async function loadCategories() {
       try {
-        const res = await fetch("/api/categories");
-        if (res.ok) {
-          const json = await res.json();
-          if (json.success && Array.isArray(json.data) && isMounted) {
-            setCategories(
-              json.data.map((c: Category) => ({
-                ...c,
-                itemsCount: (c as AdminCategoryItem).itemsCount ?? 0,
-              }))
-            );
-          }
+        const json = await adminFetch("/backend-api/categories");
+        if (json?.success && Array.isArray(json.data) && isMounted) {
+          setCategories(
+            json.data.map((c: Category) => ({
+              ...c,
+              itemsCount: (c as AdminCategoryItem).itemsCount ?? 0,
+            }))
+          );
         }
       } catch (err) {
-        console.warn("Could not fetch live categories:", err);
+        console.error("Could not fetch live categories:", err);
       }
     }
     loadCategories();
@@ -67,16 +65,12 @@ export default function AdminCategoriesPage() {
     );
 
     try {
-      await fetch(`/api/categories/${id}`, {
+      await adminFetch(`/backend-api/categories/${id}`, {
         method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: "Bearer owner-token",
-        },
         body: JSON.stringify({ isActive: newStatus }),
       });
     } catch (err) {
-      console.warn("Failed to update category status on server:", err);
+      console.error("Failed to update category status on server:", err);
     }
   };
 
@@ -92,16 +86,12 @@ export default function AdminCategoriesPage() {
       );
 
       try {
-        await fetch(`/api/categories/${editingCategory.id}`, {
+        await adminFetch(`/backend-api/categories/${editingCategory.id}`, {
           method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: "Bearer owner-token",
-          },
           body: JSON.stringify(data),
         });
       } catch (err) {
-        console.warn("Failed to update category on server:", err);
+        console.error("Failed to update category on server:", err);
       }
     } else {
       const newCategory: AdminCategoryItem = {
@@ -118,16 +108,12 @@ export default function AdminCategoriesPage() {
       setCategories((prev) => [...prev, newCategory]);
 
       try {
-        await fetch("/api/categories", {
+        await adminFetch("/backend-api/categories", {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: "Bearer owner-token",
-          },
           body: JSON.stringify(newCategory),
         });
       } catch (err) {
-        console.warn("Failed to create category on server:", err);
+        console.error("Failed to create category on server:", err);
       }
     }
     setEditingCategory(null);
@@ -141,14 +127,11 @@ export default function AdminCategoriesPage() {
     setCategoryToDelete(null);
 
     try {
-      await fetch(`/api/categories/${catId}`, {
+      await adminFetch(`/backend-api/categories/${catId}`, {
         method: "DELETE",
-        headers: {
-          Authorization: "Bearer owner-token",
-        },
       });
     } catch (err) {
-      console.warn("Failed to delete category on server:", err);
+      console.error("Failed to delete category on server:", err);
     }
   };
 

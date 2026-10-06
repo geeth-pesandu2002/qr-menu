@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { MenuItem, Category, formatPrice } from "@/src/lib/types";
 import { mockCategories, mockMenuItems } from "@/src/mock/menuData";
+import { adminFetch } from "@/src/lib/admin-api";
 
 const INITIAL_ADMIN_MENU_ITEMS: MenuItem[] = [];
 
@@ -23,24 +24,18 @@ export default function AdminMenuPage() {
     let isMounted = true;
     async function loadMenuData() {
       try {
-        const [itemsRes, catRes] = await Promise.all([
-          fetch("/api/menu-items"),
-          fetch("/api/categories"),
+        const [itemsJson, catJson] = await Promise.all([
+          adminFetch("/backend-api/menu-items"),
+          adminFetch("/backend-api/categories"),
         ]);
-        if (itemsRes.ok) {
-          const itemsJson = await itemsRes.json();
-          if (itemsJson.success && Array.isArray(itemsJson.data) && isMounted) {
-            setItems(itemsJson.data);
-          }
+        if (itemsJson?.success && Array.isArray(itemsJson.data) && isMounted) {
+          setItems(itemsJson.data);
         }
-        if (catRes.ok) {
-          const catJson = await catRes.json();
-          if (catJson.success && Array.isArray(catJson.data) && isMounted) {
-            setCategories(catJson.data);
-          }
+        if (catJson?.success && Array.isArray(catJson.data) && isMounted) {
+          setCategories(catJson.data);
         }
       } catch (err) {
-        console.warn("Could not fetch live menu data for admin:", err);
+        console.error("Could not fetch live menu data for admin:", err);
       }
     }
     loadMenuData();
@@ -69,16 +64,12 @@ export default function AdminMenuPage() {
     );
 
     try {
-      await fetch(`/api/menu-items/${itemId}`, {
+      await adminFetch(`/backend-api/menu-items/${itemId}`, {
         method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: "Bearer owner-token",
-        },
         body: JSON.stringify({ isAvailable: newAvail }),
       });
     } catch (err) {
-      console.warn("Failed to update availability on server:", err);
+      console.error("Failed to update availability on server:", err);
     }
   };
 
@@ -91,14 +82,11 @@ export default function AdminMenuPage() {
     setItemToDelete(null);
 
     try {
-      await fetch(`/api/menu-items/${deletedId}`, {
+      await adminFetch(`/backend-api/menu-items/${deletedId}`, {
         method: "DELETE",
-        headers: {
-          Authorization: "Bearer owner-token",
-        },
       });
     } catch (err) {
-      console.warn("Failed to delete menu item on server:", err);
+      console.error("Failed to delete menu item on server:", err);
     }
   };
 
