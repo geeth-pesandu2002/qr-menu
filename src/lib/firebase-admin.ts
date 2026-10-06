@@ -1,6 +1,13 @@
 import { initializeApp, getApps, cert } from "firebase-admin/app";
 import { getFirestore, Firestore } from "firebase-admin/firestore";
 
+export class DatabaseConfigurationError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "DatabaseConfigurationError";
+  }
+}
+
 export function hasFirebaseAdminCredentials(): boolean {
   return Boolean(
     process.env.FIREBASE_PROJECT_ID?.trim() &&
@@ -9,9 +16,11 @@ export function hasFirebaseAdminCredentials(): boolean {
   );
 }
 
-export function getAdminDb(): Firestore | null {
+export function getAdminDb(): Firestore {
   if (!hasFirebaseAdminCredentials()) {
-    return null;
+    throw new DatabaseConfigurationError(
+      "Firebase Admin credentials are not configured. Please set FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, and FIREBASE_PRIVATE_KEY in your server environment."
+    );
   }
 
   try {
@@ -30,8 +39,10 @@ export function getAdminDb(): Firestore | null {
         });
 
     return getFirestore(app);
-  } catch (err) {
-    console.warn("⚠️ Firebase Admin initialization failed, falling back to local database store:", err);
-    return null;
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    throw new DatabaseConfigurationError(
+      `Firebase Admin initialization failed: ${message}`
+    );
   }
-}
+}

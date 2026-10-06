@@ -1,7 +1,7 @@
 // src/lib/db-service.ts
-// Database access layer - supports Firebase Firestore with in-memory fallback store
+// Database access layer - Firestore as sole source of truth
 
-import { getAdminDb } from "@/lib/firebase-admin";
+import { getAdminDb } from "@/src/lib/firebase-admin";
 import {
   Order,
   MenuItem,
@@ -13,10 +13,9 @@ import {
   StatusHistory,
   DashboardStats,
   TopItem,
-} from "@/lib/types";
-import { mockCategories, mockMenuItems, mockTables, mockInitialOrders } from "@/src/mock/menuData";
+} from "@/src/lib/types";
 
-// ===== IN-MEMORY DUAL-MODE DATA STORE =====
+// ===== RESTAURANT SETTINGS TYPES & DEFAULTS =====
 export interface RestaurantSettings {
   restaurantName: string;
   contactEmail: string;
@@ -53,28 +52,6 @@ export const DEFAULT_SETTINGS: RestaurantSettings = {
   logoUrl: "/icons/icon-192x192.png",
 };
 
-interface MemoryStore {
-  categories: Category[];
-  menuItems: MenuItem[];
-  tables: Table[];
-  orders: Order[];
-  settings?: RestaurantSettings;
-}
-
-function getMemoryStore(): MemoryStore {
-  const g = globalThis as unknown as { __dinego_store?: MemoryStore };
-  if (!g.__dinego_store) {
-    g.__dinego_store = {
-      categories: [...mockCategories],
-      menuItems: [...mockMenuItems],
-      tables: [...mockTables],
-      orders: [...(mockInitialOrders as Order[])],
-      settings: { ...DEFAULT_SETTINGS },
-    };
-  }
-  return g.__dinego_store;
-}
-
 // ===== ORDERS =====
 
 export async function createOrder(
@@ -94,7 +71,8 @@ export async function createOrder(
   const total = subtotal + tax + serviceCharge;
 
   const db = getAdminDb();
-  const orderId = db ? db.collection("orders").doc().id : (1020 + getMemoryStore().orders.length + 1).toString();
+  const docRef = db.collection("orders").doc();
+  const orderId = docRef.id;
 
   const order: Order = {
     id: orderId,
@@ -121,25 +99,19 @@ export async function createOrder(
     estimatedMinutes: 15,
   };
 
-  if (db) {
-    await db.collection("orders").doc(orderId).set(order);
-  } else {
-    const store = getMemoryStore();
-    store.orders.unshift(order);
-  }
+  await docRef.set(order);
 
   return order;
 }
 
 export async function getOrderById(orderId: string): Promise<Order | null> {
   const db = getAdminDb();
-  if (db) {
-    const doc = await db.collection("orders").doc(orderId).get();
-    return (doc.data() as Order) || null;
+  const doc = await db.collection("orders").doc(orderId).get();
+  if (!doc.exists) {
+    return null;
   }
-  const store = getMemoryStore();
-  const order = store.orders.find((o) => o.id === orderId);
-  return order ? { ...order } : null;
+  const data = doc.data() as Order;
+  return { ...data, id: data.id || doc.id };
 }
 
 export async function getOrdersByTableAndStatus(
@@ -147,58 +119,42 @@ export async function getOrdersByTableAndStatus(
   status?: OrderStatus
 ): Promise<Order[]> {
   const db = getAdminDb();
-  if (db) {
-    let query: FirebaseFirestore.Query = db
-      .collection("orders")
-      .where("tableId", "==", tableId);
+  let query: FirebaseFirestore.Query = db
+    .collection("orders")
+    .where("tableId", "==", tableId);
 
-    if (status) {
-      query = query.where("status", "==", status);
-    }
-
-    const snapshot = await query.get();
-    return snapshot.docs.map((doc) => doc.data() as Order);
+  if (status) {
+    query = query.where("status", "==", status);
   }
 
-  const store = getMemoryStore();
-  const normalized = tableId.trim().toLowerCase();
-  return store.orders
-    .filter(
-      (o) =>
-        (o.tableId.toLowerCase() === normalized ||
-          o.tableId.padStart(2, "0") === normalized.padStart(2, "0")) &&
-        (!status || o.status === status)
-    )
-    .map((o) => ({ ...o }));
+  const snapshot = await query.get();
+  return snapshot.docs.map((doc) => {
+    const data = doc.data() as Order;
+    return { ...data, id: data.id || doc.id };
+  });
 }
 
 export async function getOrdersBySessionId(sessionId: string): Promise<Order[]> {
   const db = getAdminDb();
-  if (db) {
-    const snapshot = await db
-      .collection("orders")
-      .where("sessionId", "==", sessionId)
-      .orderBy("createdAt", "desc")
-      .get();
-    return snapshot.docs.map((doc) => doc.data() as Order);
-  }
+  const snapshot = await db
+    .collection("orders")
+    .where("sessionId", "==", sessionId)
+    .orderBy("createdAt", "desc")
+    .get();
 
-  const store = getMemoryStore();
-  return store.orders
-    .filter((o) => o.sessionId === sessionId)
-    .sort((a, b) => b.createdAt - a.createdAt)
-    .map((o) => ({ ...o }));
+  return snapshot.docs.map((doc) => {
+    const data = doc.data() as Order;
+    return { ...data, id: data.id || doc.id };
+  });
 }
 
 export async function getAllOrders(): Promise<Order[]> {
   const db = getAdminDb();
-  if (db) {
-    const snapshot = await db.collection("orders").orderBy("createdAt", "desc").get();
-    return snapshot.docs.map((doc) => doc.data() as Order);
-  }
-
-  const store = getMemoryStore();
-  return store.orders.slice().sort((a, b) => b.createdAt - a.createdAt).map((o) => ({ ...o }));
+  const snapshot = await db.collection("orders").orderBy("createdAt", "desc").get();
+  return snapshot.docs.map((doc) => {
+    const data = doc.data() as Order;
+    return { ...data, id: data.id || doc.id };
+  });
 }
 
 export async function getOrdersByDateRange(
@@ -206,22 +162,17 @@ export async function getOrdersByDateRange(
   endDate: number
 ): Promise<Order[]> {
   const db = getAdminDb();
-  if (db) {
-    const snapshot = await db
-      .collection("orders")
-      .where("createdAt", ">=", startDate)
-      .where("createdAt", "<=", endDate)
-      .orderBy("createdAt", "desc")
-      .get();
+  const snapshot = await db
+    .collection("orders")
+    .where("createdAt", ">=", startDate)
+    .where("createdAt", "<=", endDate)
+    .orderBy("createdAt", "desc")
+    .get();
 
-    return snapshot.docs.map((doc) => doc.data() as Order);
-  }
-
-  const store = getMemoryStore();
-  return store.orders
-    .filter((o) => o.createdAt >= startDate && o.createdAt <= endDate)
-    .sort((a, b) => b.createdAt - a.createdAt)
-    .map((o) => ({ ...o }));
+  return snapshot.docs.map((doc) => {
+    const data = doc.data() as Order;
+    return { ...data, id: data.id || doc.id };
+  });
 }
 
 export async function updateOrderStatus(
@@ -229,8 +180,14 @@ export async function updateOrderStatus(
   newStatus: OrderStatus,
   changedBy: string
 ): Promise<Order> {
-  const order = await getOrderById(orderId);
-  if (!order) throw new Error("Order not found");
+  const db = getAdminDb();
+  const orderRef = db.collection("orders").doc(orderId);
+  const doc = await orderRef.get();
+  if (!doc.exists) {
+    throw new Error("Order not found");
+  }
+
+  const order = doc.data() as Order;
 
   if (order.status !== newStatus && !isValidStatusTransition(order.status, newStatus)) {
     console.warn(`Status transition from ${order.status} to ${newStatus} allowed in flexible mode`);
@@ -245,58 +202,50 @@ export async function updateOrderStatus(
   const updatedHistory = [...(order.statusHistory || []), statusHistory];
   const updatedAt = Date.now();
 
-  const db = getAdminDb();
-  if (db) {
-    await db.collection("orders").doc(orderId).update({
-      status: newStatus,
-      statusHistory: updatedHistory,
-      updatedAt,
-    });
-    return (await getOrderById(orderId)) as Order;
-  }
+  await orderRef.update({
+    status: newStatus,
+    statusHistory: updatedHistory,
+    updatedAt,
+  });
 
-  const store = getMemoryStore();
-  const idx = store.orders.findIndex((o) => o.id === orderId);
-  if (idx !== -1) {
-    store.orders[idx] = {
-      ...store.orders[idx],
-      status: newStatus,
-      statusHistory: updatedHistory,
-      updatedAt,
-    };
-    return { ...store.orders[idx] };
-  }
-
-  return order;
+  return {
+    ...order,
+    id: order.id || doc.id,
+    status: newStatus,
+    statusHistory: updatedHistory,
+    updatedAt,
+  };
 }
 
 // ===== MENU ITEMS =====
 
 export async function getMenuItems(): Promise<MenuItem[]> {
   const db = getAdminDb();
-  if (db) {
-    const snapshot = await db
-      .collection("menuItems")
-      .orderBy("sortOrder", "asc")
-      .get();
+  const snapshot = await db
+    .collection("menuItems")
+    .orderBy("sortOrder", "asc")
+    .get();
 
-    return snapshot.docs.map((doc) => doc.data() as MenuItem);
-  }
-
-  const store = getMemoryStore();
-  return store.menuItems.slice().sort((a, b) => a.sortOrder - b.sortOrder);
+  return snapshot.docs.map((doc) => {
+    const data = doc.data() as MenuItem;
+    return {
+      ...data,
+      id: data.id || doc.id,
+    };
+  });
 }
 
 export async function getMenuItemById(itemId: string): Promise<MenuItem | null> {
   const db = getAdminDb();
-  if (db) {
-    const doc = await db.collection("menuItems").doc(itemId).get();
-    return (doc.data() as MenuItem) || null;
+  const doc = await db.collection("menuItems").doc(itemId).get();
+  if (!doc.exists) {
+    return null;
   }
-
-  const store = getMemoryStore();
-  const item = store.menuItems.find((i) => i.id === itemId);
-  return item ? { ...item } : null;
+  const data = doc.data() as MenuItem;
+  return {
+    ...data,
+    id: data.id || doc.id,
+  };
 }
 
 export async function createMenuItem(
@@ -304,7 +253,8 @@ export async function createMenuItem(
   createdBy: string
 ): Promise<MenuItem> {
   const db = getAdminDb();
-  const id = db ? db.collection("menuItems").doc().id : `item_${Date.now()}`;
+  const docRef = db.collection("menuItems").doc();
+  const id = docRef.id;
 
   const newItem: MenuItem = {
     ...item,
@@ -314,12 +264,7 @@ export async function createMenuItem(
     createdBy,
   };
 
-  if (db) {
-    await db.collection("menuItems").doc(id).set(newItem);
-  } else {
-    getMemoryStore().menuItems.push(newItem);
-  }
-
+  await docRef.set(newItem);
   return newItem;
 }
 
@@ -328,70 +273,65 @@ export async function updateMenuItem(
   updates: Partial<MenuItem>
 ): Promise<MenuItem> {
   const db = getAdminDb();
-  if (db) {
-    await db
-      .collection("menuItems")
-      .doc(itemId)
-      .update({
-        ...updates,
-        updatedAt: Date.now(),
-      });
-
-    return (await getMenuItemById(itemId)) as MenuItem;
+  const docRef = db.collection("menuItems").doc(itemId);
+  const doc = await docRef.get();
+  if (!doc.exists) {
+    throw new Error("Menu item not found");
   }
 
-  const store = getMemoryStore();
-  const idx = store.menuItems.findIndex((i) => i.id === itemId);
-  if (idx !== -1) {
-    store.menuItems[idx] = {
-      ...store.menuItems[idx],
-      ...updates,
-      updatedAt: Date.now(),
-    };
-    return { ...store.menuItems[idx] };
-  }
+  const updatedAt = Date.now();
+  await docRef.update({
+    ...updates,
+    updatedAt,
+  });
 
-  throw new Error("Menu item not found");
+  const updatedDoc = await docRef.get();
+  const data = updatedDoc.data() as MenuItem;
+  return {
+    ...data,
+    id: data.id || updatedDoc.id,
+  };
 }
 
 export async function deleteMenuItem(itemId: string): Promise<void> {
   const db = getAdminDb();
-  if (db) {
-    await db.collection("menuItems").doc(itemId).delete();
-    return;
+  const docRef = db.collection("menuItems").doc(itemId);
+  const doc = await docRef.get();
+  if (!doc.exists) {
+    throw new Error("Menu item not found");
   }
-
-  const store = getMemoryStore();
-  store.menuItems = store.menuItems.filter((i) => i.id !== itemId);
+  await docRef.delete();
 }
 
 // ===== CATEGORIES =====
 
 export async function getCategories(): Promise<Category[]> {
   const db = getAdminDb();
-  if (db) {
-    const snapshot = await db
-      .collection("categories")
-      .orderBy("sortOrder", "asc")
-      .get();
+  const snapshot = await db
+    .collection("categories")
+    .orderBy("sortOrder", "asc")
+    .get();
 
-    return snapshot.docs.map((doc) => doc.data() as Category);
-  }
-
-  const store = getMemoryStore();
-  return store.categories.slice().sort((a, b) => a.sortOrder - b.sortOrder);
+  return snapshot.docs.map((doc) => {
+    const data = doc.data() as Category;
+    return {
+      ...data,
+      id: data.id || doc.id,
+    };
+  });
 }
 
 export async function getCategoryById(categoryId: string): Promise<Category | null> {
   const db = getAdminDb();
-  if (db) {
-    const doc = await db.collection("categories").doc(categoryId).get();
-    return (doc.data() as Category) || null;
+  const doc = await db.collection("categories").doc(categoryId).get();
+  if (!doc.exists) {
+    return null;
   }
-
-  const store = getMemoryStore();
-  const cat = store.categories.find((c) => c.id === categoryId);
-  return cat ? { ...cat } : null;
+  const data = doc.data() as Category;
+  return {
+    ...data,
+    id: data.id || doc.id,
+  };
 }
 
 export async function createCategory(
@@ -399,7 +339,8 @@ export async function createCategory(
   createdBy: string
 ): Promise<Category> {
   const db = getAdminDb();
-  const id = db ? db.collection("categories").doc().id : `cat_${Date.now()}`;
+  const docRef = db.collection("categories").doc();
+  const id = docRef.id;
 
   const newCategory: Category = {
     ...category,
@@ -409,12 +350,7 @@ export async function createCategory(
     createdBy,
   };
 
-  if (db) {
-    await db.collection("categories").doc(id).set(newCategory);
-  } else {
-    getMemoryStore().categories.push(newCategory);
-  }
-
+  await docRef.set(newCategory);
   return newCategory;
 }
 
@@ -423,106 +359,86 @@ export async function updateCategory(
   updates: Partial<Category>
 ): Promise<Category> {
   const db = getAdminDb();
-  if (db) {
-    await db
-      .collection("categories")
-      .doc(categoryId)
-      .update({
-        ...updates,
-        updatedAt: Date.now(),
-      });
-
-    return (await getCategoryById(categoryId)) as Category;
+  const docRef = db.collection("categories").doc(categoryId);
+  const doc = await docRef.get();
+  if (!doc.exists) {
+    throw new Error("Category not found");
   }
 
-  const store = getMemoryStore();
-  const idx = store.categories.findIndex((c) => c.id === categoryId);
-  if (idx !== -1) {
-    store.categories[idx] = {
-      ...store.categories[idx],
-      ...updates,
-      updatedAt: Date.now(),
-    };
-    return { ...store.categories[idx] };
-  }
+  const updatedAt = Date.now();
+  await docRef.update({
+    ...updates,
+    updatedAt,
+  });
 
-  throw new Error("Category not found");
+  const updatedDoc = await docRef.get();
+  const data = updatedDoc.data() as Category;
+  return {
+    ...data,
+    id: data.id || updatedDoc.id,
+  };
 }
 
 export async function deleteCategory(categoryId: string): Promise<void> {
   const db = getAdminDb();
-  if (db) {
-    await db.collection("categories").doc(categoryId).delete();
-    return;
+  const docRef = db.collection("categories").doc(categoryId);
+  const doc = await docRef.get();
+  if (!doc.exists) {
+    throw new Error("Category not found");
   }
-
-  const store = getMemoryStore();
-  store.categories = store.categories.filter((c) => c.id !== categoryId);
+  await docRef.delete();
 }
 
 // ===== TABLES =====
 
 export async function getTables(): Promise<Table[]> {
   const db = getAdminDb();
-  if (db) {
-    const snapshot = await db
-      .collection("tables")
-      .orderBy("createdAt", "asc")
-      .get();
+  const snapshot = await db
+    .collection("tables")
+    .orderBy("createdAt", "asc")
+    .get();
 
-    return snapshot.docs.map((doc) => doc.data() as Table);
-  }
-
-  const store = getMemoryStore();
-  return store.tables.slice();
+  return snapshot.docs.map((doc) => {
+    const data = doc.data() as Table;
+    return {
+      ...data,
+      id: data.id || doc.id,
+    };
+  });
 }
 
 export async function getTableByQRToken(qrToken: string): Promise<Table | null> {
   const db = getAdminDb();
-  if (db) {
-    const snapshot = await db
-      .collection("tables")
-      .where("qrToken", "==", qrToken)
-      .limit(1)
-      .get();
+  const snapshot = await db
+    .collection("tables")
+    .where("qrToken", "==", qrToken)
+    .limit(1)
+    .get();
 
-    if (!snapshot.empty) return snapshot.docs[0].data() as Table;
+  if (!snapshot.empty) {
+    const doc = snapshot.docs[0];
+    const data = doc.data() as Table;
+    return { ...data, id: data.id || doc.id };
   }
 
-  const store = getMemoryStore();
-  const normalized = qrToken.trim().toLowerCase();
-  const found = store.tables.find(
-    (t) =>
-      t.qrToken?.toLowerCase() === normalized ||
-      t.id.toLowerCase() === normalized ||
-      t.id.padStart(2, "0") === normalized.padStart(2, "0") ||
-      t.label.toLowerCase() === normalized
-  );
+  // Fallback to direct document id lookup if token matches table id
+  const doc = await db.collection("tables").doc(qrToken).get();
+  if (doc.exists) {
+    const data = doc.data() as Table;
+    return { ...data, id: data.id || doc.id };
+  }
 
-  return found ? { ...found } : null;
+  return null;
 }
 
 export async function getTableById(tableId: string): Promise<Table | null> {
   const db = getAdminDb();
-  if (db) {
-    const doc = await db.collection("tables").doc(tableId).get();
-    if (doc.exists) return doc.data() as Table;
+  const doc = await db.collection("tables").doc(tableId).get();
+  if (doc.exists) {
+    const data = doc.data() as Table;
+    return { ...data, id: data.id || doc.id };
   }
-
-  const store = getMemoryStore();
-  const normalized = tableId.trim().toLowerCase();
-  const numPart = normalized.replace(/\D/g, "");
-  const found = store.tables.find(
-    (t) =>
-      t.id.toLowerCase() === normalized ||
-      t.id.padStart(2, "0") === normalized.padStart(2, "0") ||
-      t.label.toLowerCase() === normalized ||
-      t.qrToken?.toLowerCase() === normalized ||
-      (numPart && t.id.replace(/\D/g, "") === numPart) ||
-      (numPart && t.id.padStart(2, "0") === numPart.padStart(2, "0"))
-  );
-
-  return found ? { ...found } : null;
+  return null;
 }
 
 export async function createTable(
@@ -530,7 +446,8 @@ export async function createTable(
   createdBy: string
 ): Promise<Table> {
   const db = getAdminDb();
-  const id = db ? db.collection("tables").doc().id : `tbl_${Date.now()}`;
+  const docRef = db.collection("tables").doc();
+  const id = docRef.id;
 
   const newTable: Table = {
     ...table,
@@ -540,12 +457,7 @@ export async function createTable(
     createdBy,
   };
 
-  if (db) {
-    await db.collection("tables").doc(id).set(newTable);
-  } else {
-    getMemoryStore().tables.push(newTable);
-  }
-
+  await docRef.set(newTable);
   return newTable;
 }
 
@@ -554,41 +466,34 @@ export async function updateTable(
   updates: Partial<Table>
 ): Promise<Table> {
   const db = getAdminDb();
-  if (db) {
-    await db
-      .collection("tables")
-      .doc(tableId)
-      .update({
-        ...updates,
-        updatedAt: Date.now(),
-      });
-
-    return (await getTableById(tableId)) as Table;
+  const docRef = db.collection("tables").doc(tableId);
+  const doc = await docRef.get();
+  if (!doc.exists) {
+    throw new Error("Table not found");
   }
 
-  const store = getMemoryStore();
-  const idx = store.tables.findIndex((t) => t.id === tableId);
-  if (idx !== -1) {
-    store.tables[idx] = {
-      ...store.tables[idx],
-      ...updates,
-      updatedAt: Date.now(),
-    };
-    return { ...store.tables[idx] };
-  }
+  const updatedAt = Date.now();
+  await docRef.update({
+    ...updates,
+    updatedAt,
+  });
 
-  throw new Error("Table not found");
+  const updatedDoc = await docRef.get();
+  const data = updatedDoc.data() as Table;
+  return {
+    ...data,
+    id: data.id || updatedDoc.id,
+  };
 }
 
 export async function deleteTable(tableId: string): Promise<void> {
   const db = getAdminDb();
-  if (db) {
-    await db.collection("tables").doc(tableId).delete();
-    return;
+  const docRef = db.collection("tables").doc(tableId);
+  const doc = await docRef.get();
+  if (!doc.exists) {
+    throw new Error("Table not found");
   }
-
-  const store = getMemoryStore();
-  store.tables = store.tables.filter((t) => t.id !== tableId);
+  await docRef.delete();
 }
 
 // ===== ANALYTICS =====
@@ -679,36 +584,17 @@ export function generateQRToken(): string {
 
 export async function getRestaurantSettings(): Promise<RestaurantSettings> {
   const db = getAdminDb();
-  if (db) {
-    try {
-      const doc = await db.collection("settings").doc("restaurant").get();
-      if (doc.exists) {
-        return { ...DEFAULT_SETTINGS, ...(doc.data() as RestaurantSettings) };
-      }
-    } catch (e) {
-      console.warn("Firestore settings fetch error:", e);
-    }
+  const doc = await db.collection("settings").doc("restaurant").get();
+  if (doc.exists) {
+    return { ...DEFAULT_SETTINGS, ...(doc.data() as RestaurantSettings) };
   }
-  const store = getMemoryStore();
-  if (!store.settings) {
-    store.settings = { ...DEFAULT_SETTINGS };
-  }
-  return { ...store.settings };
+  return { ...DEFAULT_SETTINGS };
 }
 
 export async function updateRestaurantSettings(
   updates: Partial<RestaurantSettings>
 ): Promise<RestaurantSettings> {
   const db = getAdminDb();
-  if (db) {
-    try {
-      await db.collection("settings").doc("restaurant").set(updates, { merge: true });
-      return await getRestaurantSettings();
-    } catch (e) {
-      console.warn("Firestore settings update error:", e);
-    }
-  }
-  const store = getMemoryStore();
-  store.settings = { ...(store.settings || DEFAULT_SETTINGS), ...updates };
-  return { ...store.settings };
+  await db.collection("settings").doc("restaurant").set(updates, { merge: true });
+  return await getRestaurantSettings();
 }

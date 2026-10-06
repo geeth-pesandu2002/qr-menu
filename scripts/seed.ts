@@ -28,12 +28,12 @@ const tables = Array.from({ length: 8 }, (_, i) => ({
 }));
 
 async function seed() {
-  const { getAdminDb } = await import("../src/lib/firebase-admin");
-  const adminDb = getAdminDb();
-  if (!adminDb) {
+  const { getAdminDb, hasFirebaseAdminCredentials } = await import("../src/lib/firebase-admin");
+  if (!hasFirebaseAdminCredentials()) {
     console.error("Firebase admin credentials not found. Seeding skipped.");
     return;
   }
+  const adminDb = getAdminDb();
   const batch = adminDb.batch();
 
   categories.forEach((c) =>
