@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { getAuthHeaders } from "@/src/lib/auth-client";
 import GeneralSettings, {
   GeneralSettingsState,
 } from "@/src/components/admin/settings/GeneralSettings";
@@ -103,6 +104,7 @@ export default function SettingsPage() {
   const handleSave = async () => {
     setIsSaving(true);
     try {
+      const authHeaders = await getAuthHeaders();
       const payload = {
         ...general,
         ...info,
@@ -111,7 +113,7 @@ export default function SettingsPage() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: "Bearer owner-token",
+          ...authHeaders,
         },
         body: JSON.stringify(payload),
       });
@@ -122,8 +124,9 @@ export default function SettingsPage() {
           type: "success",
         });
       } else {
+        const json = await res.json().catch(() => ({}));
         setStatusMessage({
-          text: "Saved locally, server responded with error.",
+          text: `Failed to save settings: ${json.error || res.statusText}`,
           type: "info",
         });
       }

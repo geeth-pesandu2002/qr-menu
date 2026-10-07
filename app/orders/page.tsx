@@ -8,60 +8,6 @@ import { ThemeToggle } from "@/src/context/ThemeContext";
 import { formatPrice } from "@/src/lib/types";
 import CartDrawer from "@/src/components/diner/CartDrawer";
 
-const DEFAULT_HISTORY_ORDERS = [
-  {
-    id: "1024",
-    tableId: "05",
-    tableLabel: "Table 05",
-    sessionId: "s1",
-    status: "PREPARING" as const,
-    lines: [
-      { itemId: "b1", name: "Chicken Burger", variantLabel: null, unitPrice: 1200, qty: 2, note: "" },
-      { itemId: "d1", name: "Coke", variantLabel: null, unitPrice: 300, qty: 1, note: "" },
-    ],
-    subtotal: 2700,
-    serviceCharge: 135,
-    total: 2700,
-    dateStr: "12 Jul 2024, 1:25 PM",
-    createdAt: 1720780000000,
-    updatedAt: 1720780000000,
-  },
-  {
-    id: "1023",
-    tableId: "05",
-    tableLabel: "Table 05",
-    sessionId: "s2",
-    status: "SERVED" as const,
-    lines: [
-      { itemId: "p1", name: "Margherita Pizza", variantLabel: null, unitPrice: 1500, qty: 1, note: "" },
-      { itemId: "d1", name: "Coke", variantLabel: null, unitPrice: 300, qty: 1, note: "" },
-    ],
-    subtotal: 1800,
-    serviceCharge: 90,
-    total: 1800,
-    dateStr: "11 Jul 2024, 6:45 PM",
-    createdAt: 1720693600000,
-    updatedAt: 1720693600000,
-  },
-  {
-    id: "1022",
-    tableId: "03",
-    tableLabel: "Table 03",
-    sessionId: "s3",
-    status: "COMPLETED" as const,
-    lines: [
-      { itemId: "b2", name: "Beef Burger", variantLabel: null, unitPrice: 1350, qty: 1, note: "" },
-      { itemId: "sw1", name: "Chocolate Cake", variantLabel: null, unitPrice: 750, qty: 1, note: "" },
-    ],
-    subtotal: 2100,
-    serviceCharge: 105,
-    total: 2100,
-    dateStr: "10 Jul 2024, 1:15 PM",
-    createdAt: 1720607200000,
-    updatedAt: 1720607200000,
-  },
-];
-
 export default function OrderHistoryPage() {
   const { orders, tableId, itemCount, refreshOrders } = useCart();
   const [isCartOpen, setIsCartOpen] = useState(false);
@@ -71,10 +17,7 @@ export default function OrderHistoryPage() {
     refreshOrders();
   }, [refreshOrders]);
 
-  // Combine real diner placed orders with sample history orders
-  const displayOrders = orders.length > 0
-    ? [...orders, ...DEFAULT_HISTORY_ORDERS.filter((h) => !orders.some((o) => o.id === h.id))]
-    : DEFAULT_HISTORY_ORDERS;
+  const displayOrders = orders;
 
   const filteredOrders = displayOrders.filter((order) => {
     if (statusFilter === "ALL") return true;

@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { Category } from "@/src/lib/types";
 import CategoryModal from "@/src/components/admin/categories/CategoryModal";
+import { getAuthHeaders } from "@/src/lib/auth-client";
 
 interface AdminCategoryItem extends Category {
   itemsCount: number;
@@ -67,14 +68,19 @@ export default function AdminCategoriesPage() {
     );
 
     try {
-      await fetch(`/api/categories/${id}`, {
+      const authHeaders = await getAuthHeaders();
+      const res = await fetch(`/api/categories/${id}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
-          Authorization: "Bearer owner-token",
+          ...authHeaders,
         },
         body: JSON.stringify({ isActive: newStatus }),
       });
+      if (!res.ok) {
+        const json = await res.json().catch(() => ({}));
+        console.error("Failed to update category status:", json.error || res.statusText);
+      }
     } catch (err) {
       console.warn("Failed to update category status on server:", err);
     }
@@ -82,53 +88,65 @@ export default function AdminCategoriesPage() {
 
   // Save (Create or Edit) with backend sync
   const handleSaveCategory = async (data: Partial<Category>) => {
-    if (editingCategory) {
-      setCategories((prev) =>
-        prev.map((c) =>
-          c.id === editingCategory.id
-            ? { ...c, ...data, updatedAt: Date.now() }
-            : c
-        )
-      );
+    try {
+      const authHeaders = await getAuthHeaders();
+      if (editingCategory) {
+        setCategories((prev) =>
+          prev.map((c) =>
+            c.id === editingCategory.id
+              ? { ...c, ...data, updatedAt: Date.now() }
+              : c
+          )
+        );
 
-      try {
-        await fetch(`/api/categories/${editingCategory.id}`, {
+        const res = await fetch(`/api/categories/${editingCategory.id}`, {
           method: "PUT",
           headers: {
             "Content-Type": "application/json",
-            Authorization: "Bearer owner-token",
+            ...authHeaders,
           },
           body: JSON.stringify(data),
         });
-      } catch (err) {
-        console.warn("Failed to update category on server:", err);
-      }
-    } else {
-      const newCategory: AdminCategoryItem = {
-        id: `cat_${Date.now()}`,
-        name: data.name || "Untitled Category",
-        icon: data.icon || "🍽️",
-        sortOrder: data.sortOrder || categories.length + 1,
-        imageUrl: data.imageUrl || null,
-        isActive: data.isActive ?? true,
-        itemsCount: 0,
-        createdAt: Date.now(),
-        updatedAt: Date.now(),
-      };
-      setCategories((prev) => [...prev, newCategory]);
+        if (!res.ok) {
+          const json = await res.json().catch(() => ({}));
+          alert(`Failed to update category: ${json.error || res.statusText}`);
+        }
+      } else {
+        const newCategory: AdminCategoryItem = {
+          id: `cat_${Date.now()}`,
+          name: data.name || "Untitled Category",
+          icon: data.icon || "🍽️",
+          sortOrder: data.sortOrder || categories.length + 1,
+          imageUrl: data.imageUrl || null,
+          isActive: data.isActive ?? true,
+          itemsCount: 0,
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+        };
 
-      try {
-        await fetch("/api/categories", {
+        const res = await fetch("/api/categories", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: "Bearer owner-token",
+            ...authHeaders,
           },
           body: JSON.stringify(newCategory),
         });
-      } catch (err) {
-        console.warn("Failed to create category on server:", err);
+
+        if (res.ok) {
+          const json = await res.json();
+          if (json.data) {
+            setCategories((prev) => [...prev, { ...json.data, itemsCount: 0 }]);
+          } else {
+            setCategories((prev) => [...prev, newCategory]);
+          }
+        } else {
+          const json = await res.json().catch(() => ({}));
+          alert(`Failed to create category: ${json.error || res.statusText}`);
+        }
       }
+    } catch (err) {
+      console.warn("Category mutation failed:", err);
     }
     setEditingCategory(null);
   };
@@ -137,16 +155,21 @@ export default function AdminCategoriesPage() {
   const confirmDelete = async () => {
     if (!categoryToDelete) return;
     const catId = categoryToDelete.id;
-    setCategories((prev) => prev.filter((c) => c.id !== catId));
     setCategoryToDelete(null);
 
     try {
-      await fetch(`/api/categories/${catId}`, {
+      const authHeaders = await getAuthHeaders();
+      const res = await fetch(`/api/categories/${catId}`, {
         method: "DELETE",
-        headers: {
-          Authorization: "Bearer owner-token",
-        },
+        headers: authHeaders,
       });
+
+      if (res.ok) {
+        setCategories((prev) => prev.filter((c) => c.id !== catId));
+      } else {
+        const json = await res.json().catch(() => ({}));
+        alert(`Failed to delete category: ${json.error || res.statusText}`);
+      }
     } catch (err) {
       console.warn("Failed to delete category on server:", err);
     }

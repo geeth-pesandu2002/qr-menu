@@ -5,6 +5,7 @@ import { formatPrice, TopItem } from "@/src/lib/types";
 import StatCard from "@/src/components/admin/dashboard/StatCard";
 import RevenueChart, { ChartDataPoint } from "@/src/components/admin/reports/RevenueChart";
 import TopItemsReport from "@/src/components/admin/reports/TopItemsReport";
+import { getAuthHeaders } from "@/src/lib/auth-client";
 
 type DateRangeFilter = "TODAY" | "THIS_WEEK" | "THIS_MONTH" | "CUSTOM";
 
@@ -73,9 +74,10 @@ export default function ReportsPage() {
     let isMounted = true;
     async function loadLiveReportData() {
       try {
+        const authHeaders = await getAuthHeaders();
         const [dashRes, topRes] = await Promise.all([
-          fetch("/api/analytics/dashboard", { headers: { Authorization: "Bearer owner-token" } }),
-          fetch("/api/analytics/top-items", { headers: { Authorization: "Bearer owner-token" } }),
+          fetch("/api/analytics/dashboard", { headers: authHeaders }),
+          fetch("/api/analytics/top-items", { headers: authHeaders }),
         ]);
 
         if (dashRes.ok) {

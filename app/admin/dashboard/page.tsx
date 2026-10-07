@@ -10,6 +10,7 @@ import {
 } from "@/src/lib/types";
 import StatCard from "@/src/components/admin/dashboard/StatCard";
 import OrderStatusBadge from "@/src/components/admin/orders/OrderStatusBadge";
+import { getAuthHeaders } from "@/src/lib/auth-client";
 
 // Dashboard Statistics matching DashboardStats interface
 const INITIAL_DASHBOARD_STATS: DashboardStats = {
@@ -52,11 +53,14 @@ export default function AdminDashboardPage() {
     let isMounted = true;
     async function loadDashboard() {
       try {
+        const authHeaders = await getAuthHeaders();
         const [statsRes, ordersRes] = await Promise.all([
           fetch("/api/analytics/dashboard", {
-            headers: { Authorization: "Bearer owner-token" },
+            headers: authHeaders,
           }),
-          fetch("/api/orders"),
+          fetch("/api/orders", {
+            headers: authHeaders,
+          }),
         ]);
         if (statsRes.ok) {
           const statsJson = await statsRes.json();

@@ -36,7 +36,7 @@ export async function POST(request: NextRequest) {
     requireRole(token.role, "owner");
 
     const body = await request.json();
-    const qrToken = generateQRToken();
+    const qrToken = body.qrToken || generateQRToken(body.label || "01");
     const qrUrl = `${process.env.NEXT_PUBLIC_APP_URL || "https://qr-menu.vercel.app"}?table=${qrToken}`;
 
     const table = await createTable(

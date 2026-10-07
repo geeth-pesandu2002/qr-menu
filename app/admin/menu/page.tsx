@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { MenuItem, Category, formatPrice } from "@/src/lib/types";
+import { getAuthHeaders } from "@/src/lib/auth-client";
 import { mockCategories, mockMenuItems } from "@/src/mock/menuData";
 
 const INITIAL_ADMIN_MENU_ITEMS: MenuItem[] = [];
@@ -69,14 +70,19 @@ export default function AdminMenuPage() {
     );
 
     try {
-      await fetch(`/api/menu-items/${itemId}`, {
+      const authHeaders = await getAuthHeaders();
+      const res = await fetch(`/api/menu-items/${itemId}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
-          Authorization: "Bearer owner-token",
+          ...authHeaders,
         },
         body: JSON.stringify({ isAvailable: newAvail }),
       });
+      if (!res.ok) {
+        const json = await res.json().catch(() => ({}));
+        console.error("Failed to update item availability:", json.error || res.statusText);
+      }
     } catch (err) {
       console.warn("Failed to update availability on server:", err);
     }
@@ -86,17 +92,22 @@ export default function AdminMenuPage() {
   const confirmDelete = async () => {
     if (!itemToDelete) return;
     const deletedId = itemToDelete.id;
-    setItems((prev) => prev.filter((i) => i.id !== deletedId));
-    setSelectedIds((prev) => prev.filter((id) => id !== deletedId));
     setItemToDelete(null);
 
     try {
-      await fetch(`/api/menu-items/${deletedId}`, {
+      const authHeaders = await getAuthHeaders();
+      const res = await fetch(`/api/menu-items/${deletedId}`, {
         method: "DELETE",
-        headers: {
-          Authorization: "Bearer owner-token",
-        },
+        headers: authHeaders,
       });
+
+      if (res.ok) {
+        setItems((prev) => prev.filter((i) => i.id !== deletedId));
+        setSelectedIds((prev) => prev.filter((id) => id !== deletedId));
+      } else {
+        const json = await res.json().catch(() => ({}));
+        alert(`Failed to delete menu item: ${json.error || res.statusText}`);
+      }
     } catch (err) {
       console.warn("Failed to delete menu item on server:", err);
     }

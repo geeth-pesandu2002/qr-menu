@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { Table } from "@/src/lib/types";
+import { getAuthHeaders } from "@/src/lib/auth-client";
 
 interface QRCodeModalProps {
   table: Table | null;
@@ -25,8 +26,9 @@ export default function QRCodeModal({
     async function loadQr() {
       setIsLoadingQr(true);
       try {
+        const authHeaders = await getAuthHeaders();
         const res = await fetch(`/api/qr-code?tableId=${currentTableId}`, {
-          headers: { Authorization: "Bearer owner-token" },
+          headers: authHeaders,
         });
         if (res.ok) {
           const json = await res.json();

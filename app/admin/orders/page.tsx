@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { Order, OrderStatus, formatPrice } from "@/src/lib/types";
 import OrderCard from "@/src/components/admin/orders/OrderCard";
+import { getAuthHeaders } from "@/src/lib/auth-client";
 
 // Initial orders strictly adhering to existing domain Order and OrderStatus types
 const INITIAL_MOCK_ORDERS: Order[] = [];
@@ -73,14 +74,19 @@ export default function AdminOrdersPage() {
     );
 
     try {
-      await fetch(`/api/orders/${orderId}`, {
+      const authHeaders = await getAuthHeaders();
+      const res = await fetch(`/api/orders/${orderId}`, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
-          Authorization: "Bearer owner-token",
+          ...authHeaders,
         },
         body: JSON.stringify({ status: nextStatus }),
       });
+      if (!res.ok) {
+        const json = await res.json().catch(() => ({}));
+        alert(`Failed to update order status: ${json.error || res.statusText}`);
+      }
     } catch (err) {
       console.warn("Failed to persist order status transition:", err);
     }

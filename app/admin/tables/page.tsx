@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { Table } from "@/src/lib/types";
+import { getAuthHeaders } from "@/src/lib/auth-client";
 import TableCard from "@/src/components/admin/tables/TableCard";
 import TableModal from "@/src/components/admin/tables/TableModal";
 import QRCodeModal from "@/src/components/admin/tables/QRCodeModal";
@@ -143,14 +144,19 @@ export default function AdminTablesPage() {
     );
 
     try {
-      await fetch(`/api/tables/${tableId}`, {
+      const authHeaders = await getAuthHeaders();
+      const res = await fetch(`/api/tables/${tableId}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
-          Authorization: "Bearer owner-token",
+          ...authHeaders,
         },
         body: JSON.stringify({ isActive: newStatus }),
       });
+      if (!res.ok) {
+        const json = await res.json().catch(() => ({}));
+        console.error("Failed to update table status:", json.error || res.statusText);
+      }
     } catch (err) {
       console.warn("Failed to update table status on server:", err);
     }
@@ -158,54 +164,67 @@ export default function AdminTablesPage() {
 
   // Add / Edit Table Save with backend sync
   const handleSaveTable = async (data: Partial<Table>) => {
-    if (editingTable) {
-      setTables((prev) =>
-        prev.map((t) =>
-          t.id === editingTable.id
-            ? { ...t, ...data, updatedAt: Date.now() }
-            : t
-        )
-      );
+    try {
+      const authHeaders = await getAuthHeaders();
+      if (editingTable) {
+        setTables((prev) =>
+          prev.map((t) =>
+            t.id === editingTable.id
+              ? { ...t, ...data, updatedAt: Date.now() }
+              : t
+          )
+        );
 
-      try {
-        await fetch(`/api/tables/${editingTable.id}`, {
+        const res = await fetch(`/api/tables/${editingTable.id}`, {
           method: "PUT",
           headers: {
             "Content-Type": "application/json",
-            Authorization: "Bearer owner-token",
+            ...authHeaders,
           },
           body: JSON.stringify(data),
         });
-      } catch (err) {
-        console.warn("Failed to update table on server:", err);
-      }
-    } else {
-      const newNum = tables.length + 1;
-      const cleanNum = newNum < 10 ? `0${newNum}` : `${newNum}`;
-      const newTable: Table = {
-        id: `t${newNum}`,
-        label: data.label || `Table ${cleanNum}`,
-        seats: data.seats || 4,
-        isActive: data.isActive ?? true,
-        qrToken: `TB${cleanNum}_QR_DEMO`,
-        qrUrl: `/t/${cleanNum}`,
-        createdAt: Date.now(),
-        updatedAt: Date.now(),
-      };
-      setTables((prev) => [...prev, newTable]);
 
-      try {
-        await fetch("/api/tables", {
+        if (!res.ok) {
+          const json = await res.json().catch(() => ({}));
+          alert(`Failed to update table: ${json.error || res.statusText}`);
+        }
+      } else {
+        const newNum = tables.length + 1;
+        const cleanNum = newNum < 10 ? `0${newNum}` : `${newNum}`;
+        const newTable: Table = {
+          id: `t${newNum}`,
+          label: data.label || `Table ${cleanNum}`,
+          seats: data.seats || 4,
+          isActive: data.isActive ?? true,
+          qrToken: `TB${cleanNum}_QR_DEMO`,
+          qrUrl: `/t/${cleanNum}`,
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+        };
+
+        const res = await fetch("/api/tables", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: "Bearer owner-token",
+            ...authHeaders,
           },
           body: JSON.stringify(newTable),
         });
-      } catch (err) {
-        console.warn("Failed to create table on server:", err);
+
+        if (res.ok) {
+          const json = await res.json();
+          if (json.data) {
+            setTables((prev) => [...prev, json.data]);
+          } else {
+            setTables((prev) => [...prev, newTable]);
+          }
+        } else {
+          const json = await res.json().catch(() => ({}));
+          alert(`Failed to create table: ${json.error || res.statusText}`);
+        }
       }
+    } catch (err) {
+      console.warn("Table mutation failed:", err);
     }
     setEditingTable(null);
   };
@@ -214,16 +233,21 @@ export default function AdminTablesPage() {
   const confirmDelete = async () => {
     if (!tableToDelete) return;
     const tId = tableToDelete.id;
-    setTables((prev) => prev.filter((t) => t.id !== tId));
     setTableToDelete(null);
 
     try {
-      await fetch(`/api/tables/${tId}`, {
+      const authHeaders = await getAuthHeaders();
+      const res = await fetch(`/api/tables/${tId}`, {
         method: "DELETE",
-        headers: {
-          Authorization: "Bearer owner-token",
-        },
+        headers: authHeaders,
       });
+
+      if (res.ok) {
+        setTables((prev) => prev.filter((t) => t.id !== tId));
+      } else {
+        const json = await res.json().catch(() => ({}));
+        alert(`Failed to delete table: ${json.error || res.statusText}`);
+      }
     } catch (err) {
       console.warn("Failed to delete table on server:", err);
     }

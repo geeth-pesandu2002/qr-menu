@@ -21,7 +21,7 @@ export async function GET(request: NextRequest) {
     const startDate = startDateParam ? parseInt(startDateParam) : startOfDay;
     const endDate = endDateParam ? parseInt(endDateParam) : Date.now() + 86400000;
 
-    const stats = await getDashboardStats(startDate, endDate);
+    const stats = await getDashboardStats();
 
     return NextResponse.json(
       { success: true, data: stats, timestamp: Date.now() },

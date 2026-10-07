@@ -10,6 +10,7 @@ interface MenuItemFormProps {
   onSubmit: (data: Omit<MenuItem, "id" | "createdAt" | "updatedAt">) => void;
   onCancel: () => void;
   isEditing?: boolean;
+  isSubmitting?: boolean;
 }
 
 const SAMPLE_IMAGES = [

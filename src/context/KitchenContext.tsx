@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { Order, OrderStatus } from "../lib/types";
+import { getAuthHeaders } from "@/src/lib/auth-client";
 
 export interface KitchenOrder extends Order {
   elapsedMinutes?: number;
@@ -152,10 +153,9 @@ export const KitchenProvider: React.FC<{ children: React.ReactNode }> = ({ child
     let isMounted = true;
     const fetchApiOrders = async () => {
       try {
+        const authHeaders = await getAuthHeaders();
         const res = await fetch("/api/orders", {
-          headers: {
-            Authorization: "Bearer kitchen-demo",
-          },
+          headers: authHeaders,
         });
         if (res.ok) {
           const json = await res.json();
@@ -219,14 +219,19 @@ export const KitchenProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
 
     try {
-      await fetch(`/api/orders/${orderId}`, {
+      const authHeaders = await getAuthHeaders();
+      const res = await fetch(`/api/orders/${orderId}`, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
-          Authorization: "Bearer kitchen-demo",
+          ...authHeaders,
         },
         body: JSON.stringify({ status: newStatus }),
       });
+      if (!res.ok) {
+        const json = await res.json().catch(() => ({}));
+        alert(`Failed to update kitchen order status: ${json.error || res.statusText}`);
+      }
     } catch (err) {
       console.warn("Could not patch order status to API:", err);
     }
@@ -249,10 +254,9 @@ export const KitchenProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   const refreshKitchenOrders = async () => {
     try {
+      const authHeaders = await getAuthHeaders();
       const res = await fetch("/api/orders", {
-        headers: {
-          Authorization: "Bearer kitchen-demo",
-        },
+        headers: authHeaders,
       });
       if (res.ok) {
         const json = await res.json();

@@ -22,11 +22,7 @@ export async function GET(request: NextRequest) {
     const startDate = startDateParam ? parseInt(startDateParam) : startOfDay;
     const endDate = endDateParam ? parseInt(endDateParam) : Date.now() + 86400000;
 
-    const topItems = await getTopItems(
-      startDate,
-      endDate,
-      parseInt(limit)
-    );
+    const topItems = await getTopItems(parseInt(limit));
 
     return NextResponse.json(
       { success: true, data: topItems, timestamp: Date.now() },
