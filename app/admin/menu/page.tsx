@@ -1,40 +1,13 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { MenuItem, Category, formatPrice } from "@/src/lib/types";
-import { mockCategories, mockMenuItems } from "@/src/mock/menuData";
-
-// Initial mock items list with a couple of unavailable items for realistic demo
-const INITIAL_ADMIN_MENU_ITEMS: MenuItem[] = [
-  ...mockMenuItems,
-  {
-    id: "d3",
-    name: "Fresh Strawberry Shake",
-    description: "Seasonal fresh strawberries blended with chilled fresh milk",
-    price: 850,
-    categoryId: "drinks",
-    imageUrl: "https://images.unsplash.com/photo-1553530666-ba11a7da3888?w=600&auto=format&fit=crop&q=80",
-    isAvailable: false, // Unavailable demonstration
-    sortOrder: 8,
-    variants: [],
-  },
-  {
-    id: "des2",
-    name: "Classic Tiramisu",
-    description: "Traditional Italian dessert with mascarpone and espresso soaked biscuits",
-    price: 950,
-    categoryId: "desserts",
-    imageUrl: "https://images.unsplash.com/photo-1571877227200-a0d98ea607e9?w=600&auto=format&fit=crop&q=80",
-    isAvailable: false, // Unavailable demonstration
-    sortOrder: 9,
-    variants: [],
-  },
-];
+import { adminFetch } from "@/src/lib/admin-api";
 
 export default function AdminMenuPage() {
-  const [items, setItems] = useState<MenuItem[]>(INITIAL_ADMIN_MENU_ITEMS);
-  const [categories] = useState<Category[]>(mockCategories);
+  const [items, setItems] = useState<MenuItem[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [selectedCategory, setSelectedCategory] = useState<string>("ALL");
   const [selectedAvailability, setSelectedAvailability] = useState<
@@ -42,6 +15,35 @@ export default function AdminMenuPage() {
   >("ALL");
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [itemToDelete, setItemToDelete] = useState<MenuItem | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+
+  // Live menu data loading from backend
+  const loadMenuData = async () => {
+    try {
+      const [itemsJson, catJson] = await Promise.all([
+        adminFetch("/backend-api/menu-items"),
+        adminFetch("/backend-api/categories"),
+      ]);
+      if (itemsJson?.success && Array.isArray(itemsJson.data)) {
+        setItems(itemsJson.data);
+      }
+      if (catJson?.success && Array.isArray(catJson.data)) {
+        setCategories(catJson.data);
+      }
+      setError(null);
+    } catch (err: any) {
+      console.error("Could not fetch live menu data for admin:", err);
+      setError(err?.message || "Failed to load menu data from backend");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadMenuData();
+  }, []);
 
   // Compute summary stats
   const totalItems = items.length;
@@ -49,23 +51,53 @@ export default function AdminMenuPage() {
   const unavailableItems = items.filter((item) => !item.isAvailable).length;
   const totalCategories = categories.length;
 
-  // Toggle single item availability
-  const handleToggleAvailability = (itemId: string) => {
-    setItems((prev) =>
-      prev.map((item) =>
-        item.id === itemId
-          ? { ...item, isAvailable: !item.isAvailable, updatedAt: Date.now() }
-          : item
-      )
-    );
+  // Toggle single item availability with confirmed backend sync (no premature UI update)
+  const handleToggleAvailability = async (itemId: string) => {
+    const currentItem = items.find((i) => i.id === itemId);
+    if (!currentItem) return;
+    const newAvail = !currentItem.isAvailable;
+    setActionError(null);
+
+    try {
+      await adminFetch(`/backend-api/menu-items/${itemId}`, {
+        method: "PUT",
+        body: JSON.stringify({ isAvailable: newAvail }),
+      });
+
+      // Confirmed success: update local state
+      setItems((prev) =>
+        prev.map((item) => {
+          if (item.id === itemId) {
+            return { ...item, isAvailable: newAvail, updatedAt: Date.now() };
+          }
+          return item;
+        })
+      );
+    } catch (err: any) {
+      console.error("Failed to update availability on server:", err);
+      setActionError(err?.message || "Failed to update item availability on server. Please try again.");
+    }
   };
 
-  // Delete item handler (local mock state only)
-  const confirmDelete = () => {
+  // Delete item handler with confirmed backend sync (no premature UI update)
+  const confirmDelete = async () => {
     if (!itemToDelete) return;
-    setItems((prev) => prev.filter((i) => i.id !== itemToDelete.id));
-    setSelectedIds((prev) => prev.filter((id) => id !== itemToDelete.id));
-    setItemToDelete(null);
+    const deletedId = itemToDelete.id;
+    setActionError(null);
+
+    try {
+      await adminFetch(`/backend-api/menu-items/${deletedId}`, {
+        method: "DELETE",
+      });
+
+      // Confirmed success: remove item from local state
+      setItems((prev) => prev.filter((i) => i.id !== deletedId));
+      setSelectedIds((prev) => prev.filter((id) => id !== deletedId));
+      setItemToDelete(null);
+    } catch (err: any) {
+      console.error("Failed to delete menu item on server:", err);
+      setActionError(err?.message || "Failed to delete menu item on server. Please try again.");
+    }
   };
 
   // Checkbox handlers
@@ -129,15 +161,36 @@ export default function AdminMenuPage() {
             <span>Add New Item</span>
           </Link>
           <button
-            onClick={() => setItems(INITIAL_ADMIN_MENU_ITEMS)}
+            type="button"
+            onClick={loadMenuData}
             className="px-3.5 py-2.5 rounded-xl bg-zinc-100 hover:bg-zinc-200 text-zinc-700 text-xs font-bold transition-colors flex items-center gap-1.5"
-            title="Reset menu mock items"
+            title="Refresh menu items"
           >
             <span>🔄</span>
-            <span className="hidden sm:inline">Reset</span>
+            <span className="hidden sm:inline">Refresh</span>
           </button>
         </div>
       </div>
+
+      {/* Error Notification Banner */}
+      {(error || actionError) && (
+        <div className="p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-semibold flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span>⚠️</span>
+            <span>{actionError || error}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              setError(null);
+              setActionError(null);
+            }}
+            className="text-rose-600 hover:text-rose-900 font-bold"
+          >
+            ✕
+          </button>
+        </div>
+      )}
 
       {/* Summary KPI Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -452,7 +505,7 @@ export default function AdminMenuPage() {
               <p className="text-xs text-zinc-500 leading-relaxed">
                 Are you sure you want to remove{" "}
                 <strong className="text-zinc-800">&quot;{itemToDelete.name}&quot;</strong>?
-                This action only deletes from local mock state in this milestone.
+                This action is permanent and will remove the item from the restaurant data.
               </p>
             </div>
 

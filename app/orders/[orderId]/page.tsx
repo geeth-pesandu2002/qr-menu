@@ -2,8 +2,11 @@
 
 import React, { use } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { useCart } from "@/src/context/CartContext";
-import { formatPrice } from "@/src/lib/types";
+import { useKitchen } from "@/src/context/KitchenContext";
+import { ThemeToggle } from "@/src/context/ThemeContext";
+import { Order, formatPrice } from "@/src/lib/types";
 
 export default function OrderStatusPage({
   params,
@@ -12,133 +15,285 @@ export default function OrderStatusPage({
 }) {
   const resolvedParams = use(params);
   const orderId = resolvedParams.orderId;
-  const { getOrderById, tableLabel } = useCart();
+  const { getOrderById, tableLabel, tableId } = useCart();
+  const { kitchenOrders } = useKitchen();
+  const [apiOrder, setApiOrder] = React.useState<Order | null>(null);
 
-  const order = getOrderById(orderId);
+  // Poll live order status from backend API
+  React.useEffect(() => {
+    let isMounted = true;
+    const fetchLiveOrder = async () => {
+      try {
+        const res = await fetch(`/api/orders/${orderId}`);
+        if (res.ok) {
+          const json = await res.json();
+          if (json.success && json.data && isMounted) {
+            setApiOrder(json.data);
+          }
+        }
+      } catch (e) {
+        console.warn("Could not poll order status:", e);
+      }
+    };
+
+    fetchLiveOrder();
+    const interval = setInterval(fetchLiveOrder, 3000);
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, [orderId]);
+
+  // Find order in server API, diner cart orders, or in kitchen orders for live status synchronization
+  const cartOrder = getOrderById(orderId);
+  const kitchenOrder = kitchenOrders.find((o) => o.id === orderId);
+  const activeOrder = apiOrder || kitchenOrder || cartOrder;
+
+  const status = activeOrder ? activeOrder.status : "PREPARING";
+  const displayTable = activeOrder?.tableLabel || tableLabel || `Table ${tableId}`;
+
+  const isReceived = true;
+  const isPreparing = status === "PREPARING" || status === "SERVED" || status === "COMPLETED";
+  const isServed = status === "SERVED" || status === "COMPLETED";
+
+  const orderTimeStr = activeOrder
+    ? new Date(activeOrder.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+    : "1:25 PM";
+
+  const formattedDateStr = activeOrder
+    ? new Date(activeOrder.createdAt).toLocaleDateString("en-GB", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+      }) + `, ${orderTimeStr}`
+    : "12 Jul 2024, 1:25 PM";
 
   return (
-    <div className="min-h-screen bg-[#FAF7F2] text-[#121212] flex flex-col font-sans pb-12">
-      {/* Navigation Bar */}
-      <header className="bg-white border-b border-zinc-200 px-4 py-3 sticky top-0 z-40 flex items-center justify-between shadow-sm">
-        <Link
-          href="/t/05"
-          className="flex items-center gap-1.5 text-xs font-bold text-zinc-700 hover:text-[#FF6B2C]"
-        >
-          <span>←</span>
-          <span>Back to Menu</span>
-        </Link>
-        <span className="font-extrabold text-base text-[#121212]">Order Status</span>
-        <span className="text-xs bg-[#FF6B2C]/10 text-[#FF6B2C] font-bold px-2.5 py-1 rounded-full">
-          {order?.tableLabel || tableLabel}
-        </span>
+    <div className="min-h-screen bg-[#FAF7F2] dark:bg-[#0D0D0D] text-[#121212] dark:text-white flex flex-col font-sans select-none pb-12 relative overflow-hidden transition-colors">
+      {/* Ambient Cafe Photography & Glowing Lights fixed in background */}
+      <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden select-none">
+        <Image
+          src="/welcome-ambient-bg.jpg"
+          alt="Cafe Ambience"
+          fill
+          className="object-cover opacity-20 dark:opacity-30 filter blur-[1px] scale-105 transition-opacity duration-700"
+          priority
+        />
+        <div className="absolute top-[-5%] left-[-5%] w-[550px] h-[550px] rounded-full bg-[#FF6B2C]/25 dark:bg-[#FF6B2C]/30 blur-[140px] animate-pulse" />
+        <div className="absolute bottom-[-10%] right-[-10%] w-[600px] h-[600px] rounded-full bg-[#E7A451]/20 dark:bg-[#E7A451]/25 blur-[160px]" />
+        <div className="absolute inset-0 bg-[#FAF7F2]/75 dark:bg-[#0D0D0D]/85 backdrop-blur-[2px] transition-colors duration-500" />
+      </div>
+
+      {/* Top Header - Frosted Glass */}
+      <header className="bg-white/70 dark:bg-black/60 backdrop-blur-2xl border-b border-white/60 dark:border-white/10 px-4 sm:px-8 py-3.5 sticky top-0 z-40 shadow-sm transition-colors duration-300">
+        <div className="max-w-6xl mx-auto flex items-center justify-between">
+          <Link
+            href={`/t/${tableId || "05"}`}
+            className="flex items-center gap-2 text-xs font-bold text-zinc-600 dark:text-zinc-300 hover:text-[#FF6B2C] dark:hover:text-[#FF6B2C] transition-colors"
+          >
+            <span className="text-base">←</span>
+            <span>Back to Menu</span>
+          </Link>
+          <h1 className="font-black text-base sm:text-lg text-[#121212] dark:text-white">
+            Live Order Status
+          </h1>
+          <div className="flex items-center gap-3">
+            <ThemeToggle />
+            <Link
+              href="/orders"
+              className="text-xs font-extrabold text-[#FF6B2C] hover:underline hidden sm:inline-block"
+            >
+              All Orders →
+            </Link>
+          </div>
+        </div>
       </header>
 
-      {/* Main Container */}
-      <main className="max-w-md mx-auto w-full px-4 pt-6 space-y-6">
-        {/* Order Header Card */}
-        <div className="bg-white p-5 rounded-3xl border border-zinc-200 shadow-sm flex items-center justify-between">
-          <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-xl font-black text-[#121212]">Order #{orderId}</h1>
-            </div>
-            <p className="text-xs text-zinc-500 mt-0.5">
-              Placed at {order ? new Date(order.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "1:25 PM"}
-            </p>
-          </div>
-          <div className="bg-amber-50 border border-amber-200 px-3.5 py-2 rounded-2xl text-center">
-            <span className="text-[10px] uppercase font-bold text-amber-800 block">Est. Time</span>
-            <span className="text-sm font-extrabold text-amber-900">~15 mins</span>
-          </div>
-        </div>
-
-        {/* Live Stepper Timeline */}
-        <div className="bg-white p-6 rounded-3xl border border-zinc-200 shadow-sm space-y-6">
-          <h2 className="text-xs font-bold uppercase tracking-wider text-zinc-500">
-            Live Preparation Progress
-          </h2>
-
-          <div className="relative pl-6 space-y-8 before:absolute before:left-2.5 before:top-3 before:bottom-3 before:w-0.5 before:bg-zinc-200">
-            {/* Step 1: Received */}
-            <div className="relative flex items-start gap-4">
-              <div className="absolute -left-6 w-5 h-5 rounded-full bg-[#06402B] text-white text-xs font-bold flex items-center justify-center shadow-md">
-                ✓
-              </div>
-              <div>
-                <h3 className="font-bold text-sm text-[#121212]">Order Received</h3>
-                <p className="text-xs text-zinc-500 mt-0.5">
-                  Your order has been received by the restaurant.
-                </p>
-              </div>
-            </div>
-
-            {/* Step 2: Preparing */}
-            <div className="relative flex items-start gap-4">
-              <div className="absolute -left-6 w-5 h-5 rounded-full bg-[#E7A451] text-white text-xs font-bold flex items-center justify-center animate-ping" />
-              <div className="absolute -left-6 w-5 h-5 rounded-full bg-[#E7A451] text-white text-xs font-bold flex items-center justify-center shadow-md">
-                🔥
-              </div>
-              <div>
-                <div className="flex items-center gap-2">
-                  <h3 className="font-extrabold text-sm text-[#121212]">Preparing</h3>
-                  <span className="bg-amber-100 text-amber-800 text-[10px] font-bold px-2 py-0.5 rounded-full">
-                    In Progress
-                  </span>
+      {/* Main Container - 1 Column on Mobile, 2 Columns on Desktop */}
+      <main className="relative z-10 max-w-6xl mx-auto w-full px-4 sm:px-8 pt-6 sm:pt-10 flex-1">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+          {/* Left Column: Status Overview & Live Stepper */}
+          <div className="lg:col-span-7 space-y-5">
+            {/* Order Info Banner - Frosted Glass Card */}
+            <div className="bg-white/80 dark:bg-white/[0.07] backdrop-blur-2xl p-5 sm:p-6 rounded-3xl border border-white/80 dark:border-white/10 shadow-lg shadow-black/5 dark:shadow-black/30 flex flex-wrap items-center justify-between gap-4 transition-colors">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2.5">
+                  <span className="text-xl">📋</span>
+                  <h2 className="font-black text-lg sm:text-xl text-[#121212] dark:text-white">Order #{orderId}</h2>
                 </div>
-                <p className="text-xs text-zinc-500 mt-0.5">
-                  Your food is currently being prepared in the kitchen.
+                <p className="text-xs text-zinc-400 dark:text-zinc-400 font-semibold flex items-center gap-2" suppressHydrationWarning>
+                  <span>🪑 {displayTable}</span>
+                  <span>&bull;</span>
+                  <span>{formattedDateStr}</span>
                 </p>
               </div>
+
+              <span
+                className={`text-xs font-extrabold px-3.5 py-1.5 rounded-full transition-colors ${
+                  status === "COMPLETED" || status === "SERVED"
+                    ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-500/20 dark:text-emerald-400 border border-emerald-500/30"
+                    : status === "PREPARING"
+                    ? "bg-amber-100 text-amber-800 dark:bg-amber-500/20 dark:text-amber-400 border border-amber-500/30"
+                    : "bg-orange-100 text-orange-800 dark:bg-orange-500/20 dark:text-orange-400 border border-orange-500/30"
+                }`}
+              >
+                {status === "COMPLETED"
+                  ? "Served"
+                  : status === "SERVED"
+                  ? "Ready to Serve"
+                  : status === "PREPARING"
+                  ? "Preparing in Kitchen"
+                  : "Received"}
+              </span>
             </div>
 
-            {/* Step 3: Served */}
-            <div className="relative flex items-start gap-4 opacity-50">
-              <div className="absolute -left-6 w-5 h-5 rounded-full bg-zinc-300 text-white text-xs font-bold flex items-center justify-center">
-                3
-              </div>
-              <div>
-                <h3 className="font-bold text-sm text-[#121212]">Served</h3>
-                <p className="text-xs text-zinc-500 mt-0.5">
-                  We&apos;ll notify you when it&apos;s ready to be served.
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
+            {/* Live Stepper Timeline Card - Frosted Glass Card */}
+            <div className="bg-white/80 dark:bg-white/[0.07] backdrop-blur-2xl p-6 sm:p-8 rounded-3xl border border-white/80 dark:border-white/10 shadow-lg shadow-black/5 dark:shadow-black/30 space-y-6 transition-colors">
+              <h3 className="text-xs font-black uppercase tracking-wider text-zinc-400 dark:text-zinc-400">
+                Preparation Progress Timeline
+              </h3>
 
-        {/* Order Items Breakdown */}
-        {order && (
-          <div className="bg-white p-5 rounded-3xl border border-zinc-200 shadow-sm space-y-4">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-500">
-              Order Summary
-            </h3>
-
-            <div className="space-y-3 divide-y divide-zinc-100">
-              {order.lines.map((line, idx) => (
-                <div key={idx} className="pt-2 first:pt-0 flex justify-between items-center text-xs">
-                  <div>
-                    <p className="font-bold text-sm text-[#121212]">
-                      {line.qty}x {line.name}
-                    </p>
-                    {line.variantLabel && (
-                      <p className="text-zinc-500">{line.variantLabel}</p>
-                    )}
-                    {line.note && (
-                      <p className="text-amber-700 italic mt-0.5">Note: &quot;{line.note}&quot;</p>
-                    )}
+              <div className="relative pl-8 sm:pl-10 space-y-8 sm:space-y-10 before:absolute before:left-3.5 sm:before:left-4.5 before:top-4 before:bottom-4 before:w-0.5 before:bg-zinc-200 dark:before:bg-white/15">
+                {/* Step 1: Order Received */}
+                <div className="relative flex items-start gap-4">
+                  <div className="absolute -left-8 sm:-left-10 w-7 h-7 sm:w-9 sm:h-9 rounded-full bg-[#FF6B2C] text-white text-xs sm:text-sm font-black flex items-center justify-center shadow-md shadow-[#FF6B2C]/25">
+                    ✓
                   </div>
-                  <span className="font-bold text-sm text-[#121212]">
-                    {formatPrice(line.unitPrice * line.qty)}
-                  </span>
+                  <div className="space-y-0.5">
+                    <div className="flex items-center gap-2">
+                      <h4 className="font-extrabold text-sm sm:text-base text-[#121212] dark:text-white">Order Received</h4>
+                      <span className="text-[11px] text-zinc-400 dark:text-zinc-500 font-semibold" suppressHydrationWarning>
+                        {orderTimeStr}
+                      </span>
+                    </div>
+                    <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
+                      Your order has been logged and sent to the kitchen display board.
+                    </p>
+                  </div>
                 </div>
-              ))}
 
-              <div className="pt-3 flex justify-between font-extrabold text-sm text-[#121212]">
-                <span>Total Paid</span>
-                <span className="text-[#FF6B2C]">{formatPrice(order.total)}</span>
+                {/* Step 2: Preparing */}
+                <div className="relative flex items-start gap-4">
+                  <div
+                    className={`absolute -left-8 sm:-left-10 w-7 h-7 sm:w-9 sm:h-9 rounded-full flex items-center justify-center text-xs sm:text-sm font-black shadow-md transition-all ${
+                      isPreparing
+                        ? "bg-[#FF6B2C] text-white ring-4 ring-[#FF6B2C]/20 shadow-[#FF6B2C]/25"
+                        : "bg-zinc-200 dark:bg-white/10 text-zinc-400 dark:text-zinc-500"
+                    }`}
+                  >
+                    {isServed ? "✓" : "🍳"}
+                  </div>
+                  <div className="space-y-0.5">
+                    <div className="flex items-center gap-2">
+                      <h4 className={`font-extrabold text-sm sm:text-base ${isPreparing ? "text-[#121212] dark:text-white" : "text-zinc-400 dark:text-zinc-500"}`}>
+                        Preparing
+                      </h4>
+                      {isPreparing && !isServed && (
+                        <span className="w-2.5 h-2.5 rounded-full bg-[#FF6B2C] animate-pulse" />
+                      )}
+                    </div>
+                    <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
+                      Chefs are currently preparing your dishes fresh to order.
+                    </p>
+                  </div>
+                </div>
+
+                {/* Step 3: Served */}
+                <div className={`relative flex items-start gap-4 ${isServed ? "" : "opacity-45"}`}>
+                  <div
+                    className={`absolute -left-8 sm:-left-10 w-7 h-7 sm:w-9 sm:h-9 rounded-full flex items-center justify-center text-xs sm:text-sm font-black transition-all ${
+                      isServed
+                        ? "bg-[#06402B] dark:bg-[#198754] text-white shadow-md shadow-emerald-900/20"
+                        : "bg-zinc-200 dark:bg-white/10 text-zinc-400 dark:text-zinc-500"
+                    }`}
+                  >
+                    {isServed ? "✓" : "🍽️"}
+                  </div>
+                  <div className="space-y-0.5">
+                    <h4 className={`font-extrabold text-sm sm:text-base ${isServed ? "text-[#121212] dark:text-white" : "text-zinc-400 dark:text-zinc-500"}`}>
+                      Served to Table
+                    </h4>
+                    <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
+                      Your dishes are plated and served hot at {displayTable}.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Estimated Time Card - Frosted Glass */}
+            <div className="bg-white/80 dark:bg-white/[0.07] backdrop-blur-2xl p-5 rounded-3xl border border-white/80 dark:border-white/10 shadow-lg shadow-black/5 dark:shadow-black/30 flex items-center gap-4 transition-colors">
+              <div className="w-12 h-12 rounded-2xl bg-amber-500/10 dark:bg-amber-400/15 text-amber-600 dark:text-amber-400 flex items-center justify-center text-2xl font-bold border border-amber-500/30 flex-shrink-0">
+                🕒
+              </div>
+              <div>
+                <span className="text-xs font-bold text-zinc-400 dark:text-zinc-400 uppercase tracking-wider block">
+                  Estimated Preparation Time
+                </span>
+                <span className="text-base sm:text-lg font-black text-[#121212] dark:text-white">
+                  ~ 15 minutes
+                </span>
               </div>
             </div>
           </div>
-        )}
+
+          {/* Right Column: Order Items Summary & Action Links */}
+          <div className="lg:col-span-5 space-y-4 sticky top-24">
+            {activeOrder && (
+              <div className="bg-white/80 dark:bg-white/[0.07] backdrop-blur-2xl p-6 rounded-3xl border border-white/80 dark:border-white/10 shadow-lg shadow-black/5 dark:shadow-black/30 space-y-4 transition-colors">
+                <h3 className="text-xs font-black uppercase tracking-wider text-zinc-400 dark:text-zinc-400">
+                  Ordered Dishes ({activeOrder.lines.reduce((s, l) => s + l.qty, 0)})
+                </h3>
+
+                <div className="space-y-3 divide-y divide-zinc-200/50 dark:divide-white/10">
+                  {activeOrder.lines.map((line, idx) => (
+                    <div key={idx} className="pt-3 first:pt-0 flex justify-between items-start text-xs sm:text-sm">
+                      <div>
+                        <p className="font-extrabold text-[#121212] dark:text-white">
+                          {line.name} <span className="text-zinc-400 dark:text-zinc-500 font-bold">x{line.qty}</span>
+                        </p>
+                        {line.variantLabel && (
+                          <p className="text-zinc-400 dark:text-zinc-400 text-xs">{line.variantLabel}</p>
+                        )}
+                        {line.note && (
+                          <p className="text-amber-700 dark:text-amber-300 italic text-[11px] mt-0.5">
+                            Note: &quot;{line.note}&quot;
+                          </p>
+                        )}
+                      </div>
+                      <span className="font-black text-[#121212] dark:text-white">
+                        {formatPrice(line.unitPrice * line.qty)}
+                      </span>
+                    </div>
+                  ))}
+
+                  <div className="pt-3 flex justify-between font-black text-base text-[#121212] dark:text-white">
+                    <span>Total Amount</span>
+                    <span className="text-[#FF6B2C]">{formatPrice(activeOrder.total)}</span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Actions */}
+            <div className="space-y-3">
+              <Link
+                href={`/t/${tableId || "05"}`}
+                className="w-full py-4 rounded-full bg-[#FF6B2C] hover:bg-[#E55A1F] text-white font-black text-sm tracking-wide transition-all shadow-xl shadow-[#FF6B2C]/30 flex items-center justify-center gap-2 active:scale-98"
+              >
+                <span>Order More Dishes</span>
+                <span>+</span>
+              </Link>
+
+              <Link
+                href="/orders"
+                className="w-full py-3.5 rounded-full bg-white/80 dark:bg-white/10 hover:bg-white dark:hover:bg-white/15 text-[#121212] dark:text-white font-bold text-xs border border-zinc-200 dark:border-white/15 shadow-xs flex items-center justify-center transition-all backdrop-blur-md"
+              >
+                View All My Past Orders
+              </Link>
+            </div>
+          </div>
+        </div>
       </main>
     </div>
   );

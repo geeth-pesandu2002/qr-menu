@@ -75,70 +75,80 @@ export default function RevenueChart({
 
       {/* Chart Visual Canvas */}
       <div className="space-y-4">
-        <div className="h-64 flex items-end justify-between gap-2 sm:gap-3 px-2 border-b border-zinc-200 pt-6">
-          {data.map((point, index) => {
-            const isHovered = hoveredIndex === index;
-            const heightPercent =
-              metricMode === "REVENUE"
-                ? Math.round((point.revenue / maxRevenue) * 100)
-                : Math.round((point.orders / maxOrders) * 100);
+        {data.length === 0 ? (
+          <div className="h-64 flex flex-col items-center justify-center text-center p-6 space-y-2 border-b border-zinc-200">
+            <span className="text-3xl">📊</span>
+            <p className="text-xs font-bold text-zinc-600">No Trend Data Available</p>
+            <p className="text-[11px] text-zinc-400">
+              Sales and order trend will appear once order records are generated for this timeframe.
+            </p>
+          </div>
+        ) : (
+          <div className="h-64 flex items-end justify-between gap-2 sm:gap-3 px-2 border-b border-zinc-200 pt-6">
+            {data.map((point, index) => {
+              const isHovered = hoveredIndex === index;
+              const heightPercent =
+                metricMode === "REVENUE"
+                  ? Math.round((point.revenue / maxRevenue) * 100)
+                  : Math.round((point.orders / maxOrders) * 100);
 
-            return (
-              <div
-                key={point.label}
-                onMouseEnter={() => setHoveredIndex(index)}
-                onMouseLeave={() => setHoveredIndex(null)}
-                className="flex-1 flex flex-col items-center gap-2 group cursor-pointer h-full justify-end relative"
-              >
-                {/* Floating Tooltip */}
+              return (
                 <div
-                  className={`absolute -top-12 z-20 pointer-events-none transition-all duration-150 ${
-                    isHovered
-                      ? "opacity-100 scale-100 -translate-y-1"
-                      : "opacity-0 scale-95"
-                  }`}
+                  key={point.label}
+                  onMouseEnter={() => setHoveredIndex(index)}
+                  onMouseLeave={() => setHoveredIndex(null)}
+                  className="flex-1 flex flex-col items-center gap-2 group cursor-pointer h-full justify-end relative"
                 >
-                  <div className="bg-[#121212] text-white px-2.5 py-1.5 rounded-xl text-center shadow-xl border border-zinc-700 whitespace-nowrap space-y-0.5">
-                    <p className="text-[10px] text-zinc-400 font-semibold">{point.label}</p>
-                    <p className="text-xs font-bold text-[#FF6B2C]">
-                      {formatPrice(point.revenue)}
-                    </p>
-                    <p className="text-[10px] text-zinc-300 font-medium">
-                      {point.orders} orders
-                    </p>
-                  </div>
-                </div>
-
-                {/* Animated Bar */}
-                <div className="w-full max-w-[42px] bg-zinc-100 rounded-t-xl overflow-hidden flex flex-col justify-end h-48">
+                  {/* Floating Tooltip */}
                   <div
-                    style={{ height: `${Math.max(6, heightPercent)}%` }}
-                    className={`w-full rounded-t-xl transition-all duration-300 ${
-                      metricMode === "REVENUE"
-                        ? isHovered
-                          ? "bg-[#FF6B2C] shadow-lg shadow-[#FF6B2C]/40"
-                          : "bg-[#FF6B2C]/80 group-hover:bg-[#FF6B2C]"
-                        : isHovered
-                        ? "bg-[#198754] shadow-lg shadow-emerald-500/40"
-                        : "bg-[#198754]/80 group-hover:bg-[#198754]"
+                    className={`absolute -top-12 z-20 pointer-events-none transition-all duration-150 ${
+                      isHovered
+                        ? "opacity-100 scale-100 -translate-y-1"
+                        : "opacity-0 scale-95"
                     }`}
-                  />
-                </div>
+                  >
+                    <div className="bg-[#121212] text-white px-2.5 py-1.5 rounded-xl text-center shadow-xl border border-zinc-700 whitespace-nowrap space-y-0.5">
+                      <p className="text-[10px] text-zinc-400 font-semibold">{point.label}</p>
+                      <p className="text-xs font-bold text-[#FF6B2C]">
+                        {formatPrice(point.revenue)}
+                      </p>
+                      <p className="text-[10px] text-zinc-300 font-medium">
+                        {point.orders} orders
+                      </p>
+                    </div>
+                  </div>
 
-                {/* Label */}
-                <span
-                  className={`text-[11px] font-semibold tracking-tight transition-colors truncate max-w-[50px] text-center ${
-                    isHovered
-                      ? "text-[#FF6B2C] font-extrabold"
-                      : "text-zinc-500"
-                  }`}
-                >
-                  {point.label}
-                </span>
-              </div>
-            );
-          })}
-        </div>
+                  {/* Animated Bar */}
+                  <div className="w-full max-w-[42px] bg-zinc-100 rounded-t-xl overflow-hidden flex flex-col justify-end h-48">
+                    <div
+                      style={{ height: `${Math.max(6, heightPercent)}%` }}
+                      className={`w-full rounded-t-xl transition-all duration-300 ${
+                        metricMode === "REVENUE"
+                          ? isHovered
+                            ? "bg-[#FF6B2C] shadow-lg shadow-[#FF6B2C]/40"
+                            : "bg-[#FF6B2C]/80 group-hover:bg-[#FF6B2C]"
+                          : isHovered
+                          ? "bg-[#198754] shadow-lg shadow-emerald-500/40"
+                          : "bg-[#198754]/80 group-hover:bg-[#198754]"
+                      }`}
+                    />
+                  </div>
+
+                  {/* Label */}
+                  <span
+                    className={`text-[11px] font-semibold tracking-tight transition-colors truncate max-w-[50px] text-center ${
+                      isHovered
+                        ? "text-[#FF6B2C] font-extrabold"
+                        : "text-zinc-500"
+                    }`}
+                  >
+                    {point.label}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        )}
 
         {/* Interactive Period Total Footer */}
         <div className="p-4 rounded-2xl bg-[#FAF7F2] border border-zinc-200/80 flex flex-wrap items-center justify-between text-xs font-semibold text-zinc-700 gap-2">

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import {
   DashboardStats,
@@ -10,166 +10,67 @@ import {
 } from "@/src/lib/types";
 import StatCard from "@/src/components/admin/dashboard/StatCard";
 import OrderStatusBadge from "@/src/components/admin/orders/OrderStatusBadge";
+import { adminFetch } from "@/src/lib/admin-api";
 
-// Mock Dashboard Statistics matching DashboardStats interface
-const MOCK_DASHBOARD_STATS: DashboardStats = {
-  totalOrders: 48,
-  totalRevenue: 78650,
-  averageOrderValue: 1638.54,
-  completedOrders: 39,
-  pendingOrders: 9,
+// Dashboard initial statistics matching DashboardStats interface
+const EMPTY_DASHBOARD_STATS: DashboardStats = {
+  totalOrders: 0,
+  totalRevenue: 0,
+  averageOrderValue: 0,
+  completedOrders: 0,
+  pendingOrders: 0,
   dateRange: {
-    start: new Date().setHours(0, 0, 0, 0),
-    end: Date.now(),
+    start: 0,
+    end: 0,
   },
 };
 
-// Mock Top Selling Items matching TopItem interface
-const MOCK_TOP_ITEMS: TopItem[] = [
-  {
-    itemId: "kottu-chicken",
-    name: "Chicken Kottu",
-    qty: 34,
-    revenue: 28900,
-    trend: "up",
-  },
-  {
-    itemId: "burger-cheese",
-    name: "Cheese Burger Deluxe",
-    qty: 26,
-    revenue: 22100,
-    trend: "up",
-  },
-  {
-    itemId: "pizza-margherita",
-    name: "Margherita Pizza",
-    qty: 18,
-    revenue: 16200,
-    trend: "stable",
-  },
-  {
-    itemId: "short-eats-fish-bun",
-    name: "Spicy Fish Bun",
-    qty: 42,
-    revenue: 7560,
-    trend: "up",
-  },
-  {
-    itemId: "bev-iced-latte",
-    name: "Caramel Iced Latte",
-    qty: 15,
-    revenue: 3890,
-    trend: "down",
-  },
-];
-
-// Mock Recent Orders strictly using allowed OrderStatus values
-const MOCK_RECENT_ORDERS: Order[] = [
-  {
-    id: "1048",
-    tableId: "05",
-    tableLabel: "Table 05",
-    sessionId: "sess_1048",
-    status: "RECEIVED",
-    lines: [
-      { itemId: "k1", name: "Chicken Kottu", variantLabel: "Large", unitPrice: 1100, qty: 2, note: "Extra spicy" },
-      { itemId: "d1", name: "Coke Can", variantLabel: null, unitPrice: 300, qty: 2, note: "" },
-    ],
-    subtotal: 2800,
-    serviceCharge: 140,
-    tax: 280,
-    total: 3220,
-    createdAt: Date.now() - 1000 * 60 * 3, // 3 mins ago
-    updatedAt: Date.now() - 1000 * 60 * 3,
-  },
-  {
-    id: "1047",
-    tableId: "02",
-    tableLabel: "Table 02",
-    sessionId: "sess_1047",
-    status: "PREPARING",
-    lines: [
-      { itemId: "p1", name: "Margherita Pizza", variantLabel: null, unitPrice: 1500, qty: 1, note: "Crispy crust" },
-      { itemId: "f1", name: "French Fries", variantLabel: null, unitPrice: 500, qty: 1, note: "" },
-    ],
-    subtotal: 2000,
-    serviceCharge: 100,
-    tax: 200,
-    total: 2300,
-    createdAt: Date.now() - 1000 * 60 * 11, // 11 mins ago
-    updatedAt: Date.now() - 1000 * 60 * 4,
-  },
-  {
-    id: "1046",
-    tableId: "08",
-    tableLabel: "Table 08",
-    sessionId: "sess_1046",
-    status: "PREPARING",
-    lines: [
-      { itemId: "b2", name: "Beef Burger Deluxe", variantLabel: null, unitPrice: 1350, qty: 2, note: "No pickles" },
-      { itemId: "d2", name: "Iced Coffee", variantLabel: "Regular", unitPrice: 600, qty: 2, note: "" },
-    ],
-    subtotal: 3900,
-    serviceCharge: 195,
-    tax: 390,
-    total: 4485,
-    createdAt: Date.now() - 1000 * 60 * 18, // 18 mins ago
-    updatedAt: Date.now() - 1000 * 60 * 8,
-  },
-  {
-    id: "1045",
-    tableId: "03",
-    tableLabel: "Table 03",
-    sessionId: "sess_1045",
-    status: "SERVED",
-    lines: [
-      { itemId: "pa1", name: "Creamy Chicken Pasta", variantLabel: null, unitPrice: 1400, qty: 1, note: "" },
-      { itemId: "g1", name: "Garlic Bread", variantLabel: null, unitPrice: 400, qty: 1, note: "" },
-    ],
-    subtotal: 1800,
-    serviceCharge: 90,
-    tax: 180,
-    total: 2070,
-    createdAt: Date.now() - 1000 * 60 * 25, // 25 mins ago
-    updatedAt: Date.now() - 1000 * 60 * 12,
-  },
-  {
-    id: "1044",
-    tableId: "07",
-    tableLabel: "Table 07",
-    sessionId: "sess_1044",
-    status: "COMPLETED",
-    lines: [
-      { itemId: "cs1", name: "Caesar Salad", variantLabel: null, unitPrice: 1100, qty: 2, note: "" },
-      { itemId: "l1", name: "Fresh Lemonade", variantLabel: null, unitPrice: 650, qty: 2, note: "Less sugar" },
-    ],
-    subtotal: 3500,
-    serviceCharge: 175,
-    tax: 350,
-    total: 4025,
-    createdAt: Date.now() - 1000 * 60 * 48, // 48 mins ago
-    updatedAt: Date.now() - 1000 * 60 * 15,
-  },
-];
-
-// Hourly distribution for today's sales & orders chart
-const HOURLY_SALES_DATA = [
-  { hour: "9 AM", orders: 2, revenue: 3200, height: "15%" },
-  { hour: "10 AM", orders: 3, revenue: 4800, height: "22%" },
-  { hour: "11 AM", orders: 5, revenue: 8100, height: "38%" },
-  { hour: "12 PM", orders: 8, revenue: 13500, height: "64%" },
-  { hour: "1 PM", orders: 11, revenue: 18200, height: "86%" },
-  { hour: "2 PM", orders: 7, revenue: 11400, height: "54%" },
-  { hour: "3 PM", orders: 3, revenue: 4900, height: "23%" },
-  { hour: "4 PM", orders: 4, revenue: 6200, height: "29%" },
-  { hour: "5 PM", orders: 6, revenue: 9800, height: "46%" },
-  { hour: "6 PM", orders: 9, revenue: 14750, height: "70%" },
-  { hour: "7 PM", orders: 12, revenue: 21500, height: "100%" },
-  { hour: "8 PM", orders: 8, revenue: 12800, height: "60%" },
+// Hourly labels for today's sales & orders chart
+const CHART_HOURS = [
+  "9 AM", "10 AM", "11 AM", "12 PM", "1 PM", "2 PM",
+  "3 PM", "4 PM", "5 PM", "6 PM", "7 PM", "8 PM",
 ];
 
 export default function AdminDashboardPage() {
-  const [selectedHourlyBar, setSelectedHourlyBar] = useState<number | null>(10); // Default 7 PM peak
+  const [stats, setStats] = useState<DashboardStats>(EMPTY_DASHBOARD_STATS);
+  const [recentOrders, setRecentOrders] = useState<Order[]>([]);
+  const [topItems, setTopItems] = useState<TopItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [selectedHourlyBar, setSelectedHourlyBar] = useState<number | null>(null);
+
+  const loadDashboard = async () => {
+    try {
+      const [statsJson, ordersJson, topJson] = await Promise.all([
+        adminFetch("/backend-api/analytics/dashboard"),
+        adminFetch("/backend-api/orders"),
+        adminFetch("/backend-api/analytics/top-items"),
+      ]);
+      if (statsJson?.success && statsJson?.data) {
+        setStats(statsJson.data);
+      }
+      if (ordersJson?.success && Array.isArray(ordersJson?.data)) {
+        setRecentOrders(ordersJson.data.slice(0, 8));
+      }
+      if (topJson?.success && Array.isArray(topJson?.data)) {
+        setTopItems(topJson.data);
+      }
+      setError(null);
+    } catch (err: any) {
+      console.error("Could not load live analytics:", err);
+      setError(err?.message || "Failed to load live analytics from backend");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadDashboard();
+    const interval = setInterval(loadDashboard, 8000);
+    return () => {
+      clearInterval(interval);
+    };
+  }, []);
 
   return (
     <div className="space-y-8 font-sans pb-12">
@@ -214,56 +115,76 @@ export default function AdminDashboardPage() {
         </div>
       </div>
 
+      {/* Error Notification Banner */}
+      {error && (
+        <div className="p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-semibold flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span>⚠️</span>
+            <span>{error}</span>
+          </div>
+          <button
+            type="button"
+            onClick={loadDashboard}
+            className="px-3 py-1 bg-white rounded-xl border border-rose-200 text-rose-700 font-bold hover:bg-rose-50 transition-colors"
+          >
+            Retry
+          </button>
+        </div>
+      )}
+
       {/* 5 Core Metric Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
         {/* 1. Total Orders */}
         <StatCard
           title="Total Orders"
-          value={MOCK_DASHBOARD_STATS.totalOrders}
+          value={stats.totalOrders}
           subtitle="All tickets today"
           icon="📦"
           accentColor="orange"
-          trend={{ value: "+14% vs yesterday", isPositive: true }}
         />
 
         {/* 2. Total Revenue */}
         <StatCard
           title="Total Revenue"
-          value={formatPrice(MOCK_DASHBOARD_STATS.totalRevenue)}
+          value={formatPrice(stats.totalRevenue)}
           subtitle="Net sales (incl. tax)"
           icon="💰"
           accentColor="green"
-          trend={{ value: "+18% vs yesterday", isPositive: true }}
         />
 
         {/* 3. Average Order Value */}
         <StatCard
           title="Average Order"
-          value={formatPrice(Math.round(MOCK_DASHBOARD_STATS.averageOrderValue))}
+          value={formatPrice(Math.round(stats.averageOrderValue || 0))}
           subtitle="Per customer ticket"
           icon="🏷️"
           accentColor="zinc"
-          trend={{ value: "Rs. 1,638.54 avg", isPositive: true }}
         />
 
         {/* 4. Completed Orders */}
         <StatCard
           title="Completed"
-          value={MOCK_DASHBOARD_STATS.completedOrders}
+          value={stats.completedOrders}
           subtitle="Billed & closed"
           icon="✅"
           accentColor="gold"
-          trend={{ value: "81% completion rate", isPositive: true }}
+          trend={
+            stats.totalOrders > 0
+              ? {
+                  value: `${Math.round((stats.completedOrders / stats.totalOrders) * 100)}% completion rate`,
+                  isPositive: true,
+                }
+              : undefined
+          }
         />
 
         {/* 5. Pending Orders */}
         <StatCard
           title="Pending Orders"
-          value={MOCK_DASHBOARD_STATS.pendingOrders}
+          value={stats.pendingOrders}
           subtitle="Active in kitchen"
           icon="⏳"
           accentColor="red"
-          trend={{ value: "4 New • 5 Prep", isPositive: false }}
         />
       </div>
 
@@ -302,7 +223,7 @@ export default function AdminDashboardPage() {
                 View Live Orders
               </h4>
               <p className="text-xs text-zinc-400 truncate">
-                {MOCK_DASHBOARD_STATS.pendingOrders} tickets in kitchen
+                {stats.pendingOrders} tickets in kitchen
               </p>
             </div>
           </Link>
@@ -358,10 +279,6 @@ export default function AdminDashboardPage() {
             </div>
 
             <div className="flex items-center gap-3 text-xs">
-              <span className="flex items-center gap-1.5 text-zinc-600 font-semibold">
-                <span className="w-2.5 h-2.5 rounded-sm bg-[#FF6B2C]" />
-                Peak Hour: 7:00 PM
-              </span>
               <span className="bg-emerald-50 text-[#198754] font-bold px-2.5 py-1 rounded-full border border-emerald-200 text-[11px]">
                 Active Trading
               </span>
@@ -370,72 +287,104 @@ export default function AdminDashboardPage() {
 
           {/* Visual Bar Chart */}
           <div className="pt-2">
-            <div className="h-56 flex items-end justify-between gap-1.5 sm:gap-3 px-2 border-b border-zinc-200">
-              {HOURLY_SALES_DATA.map((item, index) => {
-                const isSelected = selectedHourlyBar === index;
-                return (
-                  <div
-                    key={item.hour}
-                    onClick={() => setSelectedHourlyBar(index)}
-                    className="flex-1 flex flex-col items-center gap-2 group cursor-pointer h-full justify-end"
-                  >
-                    {/* Tooltip on hover/select */}
-                    <div
-                      className={`text-[10px] font-mono font-bold px-1.5 py-0.5 rounded transition-all whitespace-nowrap ${
-                        isSelected
-                          ? "bg-[#121212] text-white opacity-100 -translate-y-1"
-                          : "opacity-0 group-hover:opacity-100 bg-zinc-800 text-white"
-                      }`}
-                    >
-                      {formatPrice(item.revenue)}
-                    </div>
+            {(() => {
+              const maxHourlyRevenue = Math.max(
+                ...CHART_HOURS.map((_, i) => {
+                  const targetHour = i + 9;
+                  return recentOrders
+                    .filter((o) => new Date(o.createdAt).getHours() === targetHour)
+                    .reduce((sum, o) => sum + o.total, 0);
+                }),
+                1
+              );
 
-                    {/* Bar */}
-                    <div className="w-full max-w-[32px] bg-zinc-100 rounded-t-lg overflow-hidden flex flex-col justify-end h-40">
-                      <div
-                        style={{ height: item.height }}
-                        className={`w-full rounded-t-lg transition-all duration-300 ${
-                          isSelected
-                            ? "bg-[#FF6B2C] shadow-md shadow-[#FF6B2C]/40"
-                            : "bg-[#FF6B2C]/75 group-hover:bg-[#FF6B2C]"
-                        }`}
-                      />
-                    </div>
-
-                    {/* Hour Label */}
-                    <span
-                      className={`text-[10px] font-semibold tracking-tight transition-colors ${
-                        isSelected ? "text-[#FF6B2C] font-extrabold" : "text-zinc-500"
-                      }`}
-                    >
-                      {item.hour}
-                    </span>
-                  </div>
+              const hourlyData = CHART_HOURS.map((hour, i) => {
+                const targetHour = i + 9;
+                const slotOrders = recentOrders.filter(
+                  (o) => new Date(o.createdAt).getHours() === targetHour
                 );
-              })}
-            </div>
+                const revenue = slotOrders.reduce((sum, o) => sum + o.total, 0);
+                const heightPercent =
+                  revenue > 0 ? Math.max(8, Math.round((revenue / maxHourlyRevenue) * 100)) : 4;
+                return {
+                  hour,
+                  orders: slotOrders.length,
+                  revenue,
+                  height: `${heightPercent}%`,
+                };
+              });
 
-            {/* Selected Hour Summary Pill */}
-            {selectedHourlyBar !== null && (
-              <div className="mt-4 p-3 rounded-2xl bg-[#FAF7F2] border border-zinc-200/80 flex flex-wrap items-center justify-between text-xs font-semibold text-zinc-700">
-                <span className="flex items-center gap-2">
-                  <span className="text-base">🕒</span>
-                  <span>Slot: {HOURLY_SALES_DATA[selectedHourlyBar].hour}</span>
-                </span>
-                <span>
-                  Orders Placed:{" "}
-                  <strong className="text-[#121212]">
-                    {HOURLY_SALES_DATA[selectedHourlyBar].orders} orders
-                  </strong>
-                </span>
-                <span>
-                  Slot Revenue:{" "}
-                  <strong className="text-[#FF6B2C]">
-                    {formatPrice(HOURLY_SALES_DATA[selectedHourlyBar].revenue)}
-                  </strong>
-                </span>
-              </div>
-            )}
+              return (
+                <>
+                  <div className="h-56 flex items-end justify-between gap-1.5 sm:gap-3 px-2 border-b border-zinc-200">
+                    {hourlyData.map((item, index) => {
+                      const isSelected = selectedHourlyBar === index;
+                      return (
+                        <div
+                          key={item.hour}
+                          onClick={() => setSelectedHourlyBar(index)}
+                          className="flex-1 flex flex-col items-center gap-2 group cursor-pointer h-full justify-end"
+                        >
+                          {/* Tooltip on hover/select */}
+                          <div
+                            className={`text-[10px] font-mono font-bold px-1.5 py-0.5 rounded transition-all whitespace-nowrap ${
+                              isSelected
+                                ? "bg-[#121212] text-white opacity-100 -translate-y-1"
+                                : "opacity-0 group-hover:opacity-100 bg-zinc-800 text-white"
+                            }`}
+                          >
+                            {formatPrice(item.revenue)}
+                          </div>
+
+                          {/* Bar */}
+                          <div className="w-full max-w-[32px] bg-zinc-100 rounded-t-lg overflow-hidden flex flex-col justify-end h-40">
+                            <div
+                              style={{ height: item.height }}
+                              className={`w-full rounded-t-lg transition-all duration-300 ${
+                                isSelected
+                                  ? "bg-[#FF6B2C] shadow-md shadow-[#FF6B2C]/40"
+                                  : "bg-[#FF6B2C]/75 group-hover:bg-[#FF6B2C]"
+                              }`}
+                            />
+                          </div>
+
+                          {/* Hour Label */}
+                          <span
+                            className={`text-[10px] font-semibold tracking-tight transition-colors ${
+                              isSelected ? "text-[#FF6B2C] font-extrabold" : "text-zinc-500"
+                            }`}
+                          >
+                            {item.hour}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Selected Hour Summary Pill */}
+                  {selectedHourlyBar !== null && (
+                    <div className="mt-4 p-3 rounded-2xl bg-[#FAF7F2] border border-zinc-200/80 flex flex-wrap items-center justify-between text-xs font-semibold text-zinc-700">
+                      <span className="flex items-center gap-2">
+                        <span className="text-base">🕒</span>
+                        <span>Slot: {hourlyData[selectedHourlyBar].hour}</span>
+                      </span>
+                      <span>
+                        Orders Placed:{" "}
+                        <strong className="text-[#121212]">
+                          {hourlyData[selectedHourlyBar].orders} orders
+                        </strong>
+                      </span>
+                      <span>
+                        Slot Revenue:{" "}
+                        <strong className="text-[#FF6B2C]">
+                          {formatPrice(hourlyData[selectedHourlyBar].revenue)}
+                        </strong>
+                      </span>
+                    </div>
+                  )}
+                </>
+              );
+            })()}
           </div>
         </div>
 
@@ -452,47 +401,38 @@ export default function AdminDashboardPage() {
           </div>
 
           <div className="space-y-3 pt-1">
-            {MOCK_TOP_ITEMS.map((item, index) => (
-              <div
-                key={item.itemId}
-                className="flex items-center justify-between p-3 rounded-2xl bg-zinc-50 hover:bg-zinc-100/80 transition-colors border border-zinc-100"
-              >
-                <div className="flex items-center gap-3 min-w-0">
-                  <span className="w-6 h-6 rounded-full bg-white border border-zinc-200 text-zinc-700 font-extrabold text-xs flex items-center justify-center flex-shrink-0 shadow-xs">
-                    {index + 1}
-                  </span>
-                  <div className="min-w-0">
-                    <h4 className="text-xs font-bold text-[#121212] truncate">
-                      {item.name}
-                    </h4>
-                    <span className="text-[11px] text-zinc-500 font-medium">
-                      {item.qty} units sold
+            {topItems.length === 0 ? (
+              <div className="py-8 text-center text-zinc-400 text-xs font-semibold">
+                No top selling items recorded yet today.
+              </div>
+            ) : (
+              topItems.map((item, index) => (
+                <div
+                  key={item.itemId}
+                  className="flex items-center justify-between p-3 rounded-2xl bg-zinc-50 hover:bg-zinc-100/80 transition-colors border border-zinc-100"
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <span className="w-6 h-6 rounded-full bg-white border border-zinc-200 text-zinc-700 font-extrabold text-xs flex items-center justify-center flex-shrink-0 shadow-xs">
+                      {index + 1}
                     </span>
+                    <div className="min-w-0">
+                      <h4 className="text-xs font-bold text-[#121212] truncate">
+                        {item.name}
+                      </h4>
+                      <span className="text-[11px] text-zinc-500 font-medium">
+                        {item.qty} units sold
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="text-right flex-shrink-0 pl-2">
+                    <p className="text-xs font-extrabold text-[#121212]">
+                      {formatPrice(item.revenue)}
+                    </p>
                   </div>
                 </div>
-
-                <div className="text-right flex-shrink-0 pl-2">
-                  <p className="text-xs font-extrabold text-[#121212]">
-                    {formatPrice(item.revenue)}
-                  </p>
-                  <span
-                    className={`text-[10px] font-bold ${
-                      item.trend === "up"
-                        ? "text-emerald-600"
-                        : item.trend === "down"
-                        ? "text-rose-600"
-                        : "text-zinc-400"
-                    }`}
-                  >
-                    {item.trend === "up"
-                      ? "↑ Rising"
-                      : item.trend === "down"
-                      ? "↓ Lower"
-                      : "• Stable"}
-                  </span>
-                </div>
-              </div>
-            ))}
+              ))
+            )}
           </div>
 
           <Link
@@ -513,7 +453,7 @@ export default function AdminDashboardPage() {
                 Recent Active Orders
               </h3>
               <span className="bg-red-50 text-red-700 text-xs px-2.5 py-0.5 rounded-full font-bold border border-red-200">
-                {MOCK_RECENT_ORDERS.filter((o) => o.status === "RECEIVED").length} New
+                {recentOrders.filter((o) => o.status === "RECEIVED").length} New
               </span>
             </div>
             <p className="text-xs text-zinc-500 font-medium">
@@ -544,7 +484,17 @@ export default function AdminDashboardPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-100 font-medium text-zinc-700">
-              {MOCK_RECENT_ORDERS.map((order) => {
+              {recentOrders.length === 0 ? (
+                <tr>
+                  <td
+                    colSpan={6}
+                    className="py-8 text-center text-zinc-400 font-semibold text-xs"
+                  >
+                    No recent active orders found.
+                  </td>
+                </tr>
+              ) : (
+                recentOrders.map((order) => {
                 const elapsedMin = Math.round(
                   (Date.now() - order.createdAt) / (1000 * 60)
                 );
@@ -596,7 +546,7 @@ export default function AdminDashboardPage() {
                     </td>
                   </tr>
                 );
-              })}
+              }))}
             </tbody>
           </table>
         </div>

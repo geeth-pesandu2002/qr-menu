@@ -116,8 +116,8 @@ export const formatPrice = (amount: number) => {
 };
 
 export const ALLOWED_STATUS_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
-  "RECEIVED": ["PREPARING"],
-  "PREPARING": ["SERVED"],
+  "RECEIVED": ["PREPARING", "CANCELLED"],
+  "PREPARING": ["SERVED", "CANCELLED"],
   "SERVED": ["COMPLETED"],
   "COMPLETED": [],
   "CANCELLED": [],

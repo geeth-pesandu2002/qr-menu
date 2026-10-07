@@ -1,97 +1,17 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { Table } from "@/src/lib/types";
 import TableCard from "@/src/components/admin/tables/TableCard";
 import TableModal from "@/src/components/admin/tables/TableModal";
 import QRCodeModal from "@/src/components/admin/tables/QRCodeModal";
-
-const INITIAL_MOCK_TABLES: Table[] = [
-  {
-    id: "t1",
-    label: "Table 01",
-    seats: 2,
-    isActive: true,
-    qrToken: "TB01_QR_LIVE",
-    qrUrl: "/t/01",
-    createdAt: Date.now() - 1000 * 60 * 60 * 24 * 30,
-    updatedAt: Date.now() - 1000 * 60 * 60 * 24 * 2,
-  },
-  {
-    id: "t2",
-    label: "Table 02",
-    seats: 4,
-    isActive: true,
-    qrToken: "TB02_QR_LIVE",
-    qrUrl: "/t/02",
-    createdAt: Date.now() - 1000 * 60 * 60 * 24 * 30,
-    updatedAt: Date.now() - 1000 * 60 * 60 * 24 * 2,
-  },
-  {
-    id: "t3",
-    label: "Table 03",
-    seats: 4,
-    isActive: true,
-    qrToken: "TB03_QR_LIVE",
-    qrUrl: "/t/03",
-    createdAt: Date.now() - 1000 * 60 * 60 * 24 * 30,
-    updatedAt: Date.now() - 1000 * 60 * 60 * 24 * 2,
-  },
-  {
-    id: "t4",
-    label: "Table 04",
-    seats: 6,
-    isActive: true,
-    qrToken: "TB04_QR_LIVE",
-    qrUrl: "/t/04",
-    createdAt: Date.now() - 1000 * 60 * 60 * 24 * 30,
-    updatedAt: Date.now() - 1000 * 60 * 60 * 24 * 2,
-  },
-  {
-    id: "t5",
-    label: "Table 05",
-    seats: 4,
-    isActive: true,
-    qrToken: "TB05_QR_LIVE",
-    qrUrl: "/t/05",
-    createdAt: Date.now() - 1000 * 60 * 60 * 24 * 30,
-    updatedAt: Date.now() - 1000 * 60 * 60 * 24 * 2,
-  },
-  {
-    id: "t6",
-    label: "Table 06",
-    seats: 8,
-    isActive: true,
-    qrToken: "TB06_QR_LIVE",
-    qrUrl: "/t/06",
-    createdAt: Date.now() - 1000 * 60 * 60 * 24 * 30,
-    updatedAt: Date.now() - 1000 * 60 * 60 * 24 * 2,
-  },
-  {
-    id: "t7",
-    label: "Table 07",
-    seats: 2,
-    isActive: true,
-    qrToken: "TB07_QR_LIVE",
-    qrUrl: "/t/07",
-    createdAt: Date.now() - 1000 * 60 * 60 * 24 * 30,
-    updatedAt: Date.now() - 1000 * 60 * 60 * 24 * 2,
-  },
-  {
-    id: "t8",
-    label: "Table 08",
-    seats: 4,
-    isActive: false, // Inactive demonstration
-    qrToken: "TB08_QR_LIVE",
-    qrUrl: "/t/08",
-    createdAt: Date.now() - 1000 * 60 * 60 * 24 * 30,
-    updatedAt: Date.now() - 1000 * 60 * 60 * 24 * 2,
-  },
-];
+import { adminFetch } from "@/src/lib/admin-api";
 
 export default function AdminTablesPage() {
-  const [tables, setTables] = useState<Table[]>(INITIAL_MOCK_TABLES);
+  const [tables, setTables] = useState<Table[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<"ALL" | "ACTIVE" | "INACTIVE">("ALL");
 
@@ -100,6 +20,31 @@ export default function AdminTablesPage() {
   const [editingTable, setEditingTable] = useState<Table | null>(null);
   const [qrModalTable, setQrModalTable] = useState<Table | null>(null);
   const [tableToDelete, setTableToDelete] = useState<Table | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+
+  // Live tables loading from backend
+  const loadTables = async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const json = await adminFetch("/backend-api/tables");
+      if (json?.success && Array.isArray(json.data)) {
+        setTables(json.data);
+      } else {
+        setTables([]);
+      }
+    } catch (err: any) {
+      console.error("Could not fetch live tables:", err);
+      setError(err?.message || "Failed to load tables from server");
+      setTables([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadTables();
+  }, []);
 
   // Summary Metrics
   const totalTables = tables.length;
@@ -107,50 +52,88 @@ export default function AdminTablesPage() {
   const inactiveTables = tables.filter((t) => !t.isActive).length;
   const qrReadyCount = tables.filter((t) => Boolean(t.qrToken || t.qrUrl)).length;
 
-  // Status toggle handler
-  const handleToggleStatus = (tableId: string) => {
-    setTables((prev) =>
-      prev.map((t) =>
-        t.id === tableId
-          ? { ...t, isActive: !t.isActive, updatedAt: Date.now() }
-          : t
-      )
-    );
-  };
+  // Status toggle handler with backend sync
+  const handleToggleStatus = async (tableId: string) => {
+    const target = tables.find((t) => t.id === tableId);
+    if (!target) return;
+    const newStatus = !target.isActive;
 
-  // Add / Edit Table Save
-  const handleSaveTable = (data: Partial<Table>) => {
-    if (editingTable) {
+    try {
+      await adminFetch(`/backend-api/tables/${tableId}`, {
+        method: "PUT",
+        body: JSON.stringify({ isActive: newStatus }),
+      });
       setTables((prev) =>
         prev.map((t) =>
-          t.id === editingTable.id
-            ? { ...t, ...data, updatedAt: Date.now() }
-            : t
+          t.id === tableId ? { ...t, isActive: newStatus, updatedAt: Date.now() } : t
         )
       );
-    } else {
-      const newNum = tables.length + 1;
-      const cleanNum = newNum < 10 ? `0${newNum}` : `${newNum}`;
-      const newTable: Table = {
-        id: `t${newNum}`,
-        label: data.label || `Table ${cleanNum}`,
-        seats: data.seats || 4,
-        isActive: data.isActive ?? true,
-        qrToken: `TB${cleanNum}_QR_DEMO`,
-        qrUrl: `/t/${cleanNum}`,
-        createdAt: Date.now(),
-        updatedAt: Date.now(),
-      };
-      setTables((prev) => [...prev, newTable]);
+    } catch (err: any) {
+      console.error("Failed to update table status on server:", err);
+      setError(err?.message || "Failed to update table status on server");
     }
-    setEditingTable(null);
   };
 
-  // Delete Table
-  const confirmDelete = () => {
+  // Add / Edit Table Save with backend sync
+  const handleSaveTable = async (data: Partial<Table>) => {
+    setIsSaving(true);
+    try {
+      if (editingTable) {
+        await adminFetch(`/backend-api/tables/${editingTable.id}`, {
+          method: "PUT",
+          body: JSON.stringify(data),
+        });
+        setTables((prev) =>
+          prev.map((t) =>
+            t.id === editingTable.id
+              ? { ...t, ...data, updatedAt: Date.now() }
+              : t
+          )
+        );
+      } else {
+        const res = await adminFetch("/backend-api/tables", {
+          method: "POST",
+          body: JSON.stringify(data),
+        });
+        const createdTable: Table = res?.data || {
+          id: `t_${Date.now()}`,
+          label: data.label || "New Table",
+          seats: data.seats || 4,
+          isActive: data.isActive ?? true,
+          qrToken: `TB_${Date.now()}`,
+          qrUrl: `/t/${data.label ? data.label.replace(/\s+/g, "").toLowerCase() : Date.now()}`,
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+          ...data,
+        };
+        setTables((prev) => [...prev, createdTable]);
+      }
+      setIsTableModalOpen(false);
+      setEditingTable(null);
+    } catch (err: any) {
+      console.error("Failed to save table on server:", err);
+      setError(err?.message || "Failed to save table on server");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // Delete Table with backend sync
+  const confirmDelete = async () => {
     if (!tableToDelete) return;
-    setTables((prev) => prev.filter((t) => t.id !== tableToDelete.id));
-    setTableToDelete(null);
+    const tId = tableToDelete.id;
+
+    try {
+      await adminFetch(`/backend-api/tables/${tId}`, {
+        method: "DELETE",
+      });
+      setTables((prev) => prev.filter((t) => t.id !== tId));
+      setTableToDelete(null);
+    } catch (err: any) {
+      console.error("Failed to delete table on server:", err);
+      setError(err?.message || "Failed to delete table on server");
+      setTableToDelete(null);
+    }
   };
 
   // Filter tables
@@ -171,6 +154,23 @@ export default function AdminTablesPage() {
 
   return (
     <div className="space-y-6 font-sans pb-16">
+      {/* Error Banner */}
+      {error && (
+        <div className="p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-semibold flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span>⚠️</span>
+            <span>{error}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setError(null)}
+            className="text-rose-600 hover:text-black font-bold text-sm ml-4"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
       {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-6 rounded-3xl border border-zinc-200/80 shadow-xs">
         <div>
@@ -199,12 +199,12 @@ export default function AdminTablesPage() {
           </button>
           <button
             type="button"
-            onClick={() => setTables(INITIAL_MOCK_TABLES)}
+            onClick={loadTables}
             className="px-3.5 py-2.5 rounded-xl bg-zinc-100 hover:bg-zinc-200 text-zinc-700 text-xs font-bold transition-colors flex items-center gap-1.5"
-            title="Reset tables demo"
+            title="Refresh tables from server"
           >
             <span>🔄</span>
-            <span className="hidden sm:inline">Reset</span>
+            <span className="hidden sm:inline">Refresh</span>
           </button>
         </div>
       </div>
@@ -331,7 +331,12 @@ export default function AdminTablesPage() {
       </div>
 
       {/* Tables Grid */}
-      {filteredTables.length === 0 ? (
+      {isLoading ? (
+        <div className="bg-white rounded-3xl p-16 text-center border border-zinc-200/80 shadow-xs flex flex-col items-center justify-center space-y-3">
+          <div className="w-8 h-8 rounded-full border-2 border-[#FF6B2C] border-t-transparent animate-spin" />
+          <p className="text-xs text-zinc-400 font-medium">Loading dining tables...</p>
+        </div>
+      ) : filteredTables.length === 0 ? (
         <div className="bg-white rounded-3xl p-12 text-center border border-zinc-200/80 shadow-xs space-y-3">
           <div className="w-16 h-16 rounded-2xl bg-zinc-100 text-zinc-400 mx-auto flex items-center justify-center text-3xl">
             🪑
@@ -405,7 +410,7 @@ export default function AdminTablesPage() {
               <p className="text-xs text-zinc-500 leading-relaxed">
                 Are you sure you want to remove{" "}
                 <strong className="text-zinc-800">&quot;{tableToDelete.label}&quot;</strong>?
-                This action only deletes from local mock state in this milestone.
+                This action cannot be undone.
               </p>
             </div>
 

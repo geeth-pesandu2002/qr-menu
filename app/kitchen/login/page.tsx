@@ -6,18 +6,47 @@ import { useKitchen } from "@/src/context/KitchenContext";
 
 export default function KitchenLoginPage() {
   const router = useRouter();
-  const { login } = useKitchen();
+  const { login, isAuthenticated, isAuthLoading } = useKitchen();
 
-  const [email, setEmail] = useState("staff@cozycafe.com");
-  const [password, setPassword] = useState("••••••••");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [rememberMe, setRememberMe] = useState(true);
+  const [showPassword, setShowPassword] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  // If already authenticated, redirect to dashboard
+  React.useEffect(() => {
+    if (!isAuthLoading && isAuthenticated) {
+      router.replace("/kitchen/dashboard");
+    }
+  }, [isAuthenticated, isAuthLoading, router]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (login(email)) {
-      router.push("/kitchen/dashboard");
+    setErrorMessage(null);
+
+    if (!email.trim() || !password) {
+      setErrorMessage("Please enter both email and password.");
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const res = await login(email, password);
+      if (res.success) {
+        router.push("/kitchen/dashboard");
+      } else {
+        setErrorMessage(res.error || "Authentication failed. Please try again.");
+      }
+    } catch (err) {
+      setErrorMessage(err instanceof Error ? err.message : "Unexpected error during login.");
+    } finally {
+      setIsSubmitting(false);
     }
   };
+
+
 
   return (
     <div className="min-h-screen bg-[#121212] flex items-center justify-center p-4 sm:p-6 font-sans">
@@ -71,9 +100,17 @@ export default function KitchenLoginPage() {
               </div>
               <h2 className="text-2xl font-extrabold text-[#121212]">Kitchen Portal</h2>
               <p className="text-xs text-zinc-500 font-medium">
-                Sign in to manage live orders
+                Sign in with your Kitchen credentials
               </p>
             </div>
+
+            {/* Error Message Box */}
+            {errorMessage && (
+              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-2xl text-xs font-medium flex items-start gap-2.5 animate-in fade-in duration-200">
+                <span className="text-base leading-none">⚠️</span>
+                <span className="flex-1">{errorMessage}</span>
+              </div>
+            )}
 
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-1">
@@ -87,7 +124,7 @@ export default function KitchenLoginPage() {
                     required
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    placeholder="Enter your email"
+                    placeholder="kitchen@example.com"
                     className="w-full bg-zinc-50 border border-zinc-200 rounded-xl pl-10 pr-4 py-2.5 text-sm text-[#121212] focus:outline-none focus:border-[#FF6B2C]"
                   />
                 </div>
@@ -100,16 +137,21 @@ export default function KitchenLoginPage() {
                     🔒
                   </span>
                   <input
-                    type="password"
+                    type={showPassword ? "text" : "password"}
                     required
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="Enter your password"
                     className="w-full bg-zinc-50 border border-zinc-200 rounded-xl pl-10 pr-10 py-2.5 text-sm text-[#121212] focus:outline-none focus:border-[#FF6B2C]"
                   />
-                  <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-zinc-400 text-xs">
-                    👁️
-                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-zinc-400 text-xs hover:text-zinc-600"
+                    title={showPassword ? "Hide password" : "Show password"}
+                  >
+                    {showPassword ? "🙈" : "👁️"}
+                  </button>
                 </div>
               </div>
 
@@ -127,10 +169,20 @@ export default function KitchenLoginPage() {
 
               <button
                 type="submit"
-                className="w-full py-3.5 rounded-xl bg-[#FF6B2C] hover:bg-[#E55A1F] text-white font-bold text-sm transition-all shadow-lg shadow-[#FF6B2C]/30 flex items-center justify-center gap-2"
+                disabled={isSubmitting}
+                className="w-full py-3.5 rounded-xl bg-[#FF6B2C] hover:bg-[#E55A1F] text-white font-bold text-sm transition-all shadow-lg shadow-[#FF6B2C]/30 flex items-center justify-center gap-2 disabled:opacity-70 disabled:pointer-events-none active:scale-98"
               >
-                <span>→</span>
-                <span>Sign In</span>
+                {isSubmitting ? (
+                  <>
+                    <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    <span>Signing In...</span>
+                  </>
+                ) : (
+                  <>
+                    <span>→</span>
+                    <span>Sign In</span>
+                  </>
+                )}
               </button>
             </form>
 

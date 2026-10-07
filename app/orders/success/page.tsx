@@ -2,8 +2,9 @@
 
 import React, { use } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { useCart } from "@/src/context/CartContext";
-import { formatPrice } from "@/src/lib/types";
+import { ThemeToggle } from "@/src/context/ThemeContext";
 
 export default function OrderSuccessPage({
   searchParams,
@@ -12,61 +13,100 @@ export default function OrderSuccessPage({
 }) {
   const resolvedParams = use(searchParams);
   const orderId = resolvedParams.orderId || "1024";
-  const { tableLabel, getOrderById } = useCart();
+  const { tableId, tableLabel, getOrderById } = useCart();
 
   const order = getOrderById(orderId);
 
+  const formattedDate = order
+    ? new Date(order.createdAt).toLocaleDateString("en-GB", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+      }) +
+      ", " +
+      new Date(order.createdAt).toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
+      })
+    : "12 Jul 2024, 1:25 PM";
+
   return (
-    <div className="min-h-screen bg-[#FAF7F2] text-[#121212] flex flex-col justify-center items-center p-6 font-sans">
-      <div className="w-full max-w-md bg-white rounded-3xl p-8 border border-zinc-200 shadow-xl flex flex-col items-center text-center space-y-6 animate-in zoom-in-95 duration-200">
-        {/* Checkmark Circle */}
-        <div className="w-20 h-20 rounded-full bg-[#FF6B2C] text-white flex items-center justify-center text-4xl shadow-xl shadow-[#FF6B2C]/30 animate-bounce">
+    <div className="min-h-screen bg-[#FAF7F2] dark:bg-[#0D0D0D] text-[#121212] dark:text-white flex flex-col justify-center items-center p-5 font-sans select-none relative overflow-hidden transition-colors duration-300">
+      {/* Ambient Cafe Photography & Glowing Lights fixed in background */}
+      <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden select-none">
+        <Image
+          src="/welcome-ambient-bg.jpg"
+          alt="Cafe Ambience"
+          fill
+          className="object-cover opacity-20 dark:opacity-30 filter blur-[1px] scale-105 transition-opacity duration-700"
+          priority
+        />
+        <div className="absolute top-1/4 left-1/4 w-96 h-96 rounded-full bg-[#FF6B2C]/25 dark:bg-[#FF6B2C]/30 blur-[130px] animate-pulse" />
+        <div className="absolute bottom-1/4 right-1/4 w-[400px] h-[400px] rounded-full bg-[#E7A451]/20 dark:bg-[#E7A451]/25 blur-[140px]" />
+        <div className="absolute inset-0 bg-[#FAF7F2]/75 dark:bg-[#0D0D0D]/85 backdrop-blur-[2px] transition-colors duration-500" />
+      </div>
+
+      {/* Top Floating Theme Switcher */}
+      <div className="absolute top-5 right-5 z-30">
+        <ThemeToggle />
+      </div>
+
+      {/* Celebration Confetti Particles */}
+      <div className="absolute inset-0 pointer-events-none overflow-hidden">
+        <span className="absolute top-12 left-10 text-2xl animate-bounce">🎉</span>
+        <span className="absolute top-20 right-14 text-xl animate-pulse">✨</span>
+        <span className="absolute bottom-28 left-8 text-xl animate-pulse">🎊</span>
+        <span className="absolute bottom-20 right-10 text-2xl animate-bounce">🍕</span>
+      </div>
+
+      {/* Frosted Glass Celebration Card */}
+      <div className="w-full max-w-md sm:max-w-lg bg-white/65 dark:bg-white/[0.08] backdrop-blur-2xl rounded-3xl p-7 sm:p-10 border border-white/80 dark:border-white/15 shadow-[0_25px_60px_rgba(0,0,0,0.06),inset_0_1px_1px_rgba(255,255,255,0.9)] dark:shadow-[0_25px_60px_rgba(0,0,0,0.5),inset_0_1px_1px_rgba(255,255,255,0.15)] flex flex-col items-center text-center space-y-6 animate-in zoom-in-95 duration-300 relative z-10 transition-colors">
+        {/* Large Orange Success Circle with Glowing Drop Shadow */}
+        <div className="w-20 h-20 rounded-full bg-gradient-to-tr from-[#FF6B2C] to-[#FF854D] text-white flex items-center justify-center text-3xl font-black shadow-[0_0_35px_rgba(255,107,44,0.6)]">
           ✓
         </div>
 
-        <div>
-          <h1 className="text-2xl font-black text-[#121212]">Order Placed!</h1>
-          <p className="text-xs text-zinc-500 mt-1 max-w-xs leading-relaxed">
-            Your order has been sent to the kitchen. You can track the real-time preparation status below.
+        {/* Headings */}
+        <div className="space-y-1.5">
+          <h1 className="text-2xl sm:text-3xl font-black text-[#121212] dark:text-white tracking-tight">
+            Order Placed!
+          </h1>
+          <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 max-w-xs mx-auto leading-relaxed">
+            Your order has been sent to the kitchen line. You can track the preparation status below.
           </p>
         </div>
 
-        {/* Order Meta Box */}
-        <div className="w-full bg-[#FAF7F2] rounded-2xl p-4 border border-zinc-200/80 text-left space-y-2 text-xs">
-          <div className="flex justify-between items-center border-b border-zinc-200 pb-2">
-            <span className="font-bold text-zinc-700">Order #{orderId}</span>
-            <span className="bg-[#FF6B2C]/10 text-[#FF6B2C] font-extrabold px-2.5 py-0.5 rounded-full">
-              {tableLabel}
-            </span>
+        {/* Order Details Frosted Glass Box */}
+        <div className="w-full bg-white/50 dark:bg-white/[0.05] backdrop-blur-xl rounded-2xl p-4 sm:p-5 border border-zinc-200/50 dark:border-white/10 text-left space-y-2.5 text-xs sm:text-sm">
+          <div className="flex items-center gap-2.5 text-[#121212] dark:text-white font-extrabold text-sm sm:text-base">
+            <span>📋</span>
+            <span>Order #{orderId}</span>
           </div>
 
-          {order && (
-            <div className="space-y-1 text-zinc-600 pt-1">
-              <p>
-                <span className="font-semibold text-zinc-800">Items:</span>{" "}
-                {order.lines.map((l) => `${l.name} x${l.qty}`).join(", ")}
-              </p>
-              <p className="flex justify-between font-bold text-sm text-[#121212] pt-1">
-                <span>Total Amount:</span>
-                <span className="text-[#FF6B2C]">{formatPrice(order.total)}</span>
-              </p>
-            </div>
-          )}
+          <div className="flex items-center gap-2.5 text-zinc-700 dark:text-zinc-300 font-bold">
+            <span>🪑</span>
+            <span>{order?.tableLabel || tableLabel || `Table ${tableId}`}</span>
+          </div>
+
+          <div className="flex items-center gap-2.5 text-zinc-400 font-medium text-xs" suppressHydrationWarning>
+            <span>🕒</span>
+            <span>{formattedDate}</span>
+          </div>
         </div>
 
         {/* Buttons */}
         <div className="w-full space-y-3 pt-2">
           <Link
             href={`/orders/${orderId}`}
-            className="w-full py-3.5 rounded-full bg-[#FF6B2C] hover:bg-[#E55A1F] text-white font-bold text-sm transition-all shadow-lg shadow-[#FF6B2C]/20 flex items-center justify-center gap-2"
+            className="w-full py-4 rounded-full bg-gradient-to-r from-[#FF6B2C] to-[#E55A1F] hover:from-[#E55A1F] hover:to-[#FF6B2C] text-white font-black text-sm sm:text-base transition-all shadow-xl shadow-[#FF6B2C]/30 hover:shadow-[#FF6B2C]/50 flex items-center justify-center gap-2 active:scale-98"
           >
-            <span>View Order Status</span>
+            <span>View Live Order Status</span>
             <span>→</span>
           </Link>
 
           <Link
-            href="/t/05"
-            className="w-full py-3.5 rounded-full bg-zinc-100 hover:bg-zinc-200 text-zinc-700 font-bold text-sm transition-all flex items-center justify-center"
+            href={`/t/${tableId}`}
+            className="w-full py-3 rounded-full text-zinc-500 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-white font-bold text-xs flex items-center justify-center transition-colors"
           >
             Back to Menu
           </Link>
