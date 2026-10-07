@@ -493,7 +493,7 @@ export default function AdminCategoriesPage() {
               <p className="text-xs text-zinc-500 leading-relaxed">
                 Are you sure you want to remove{" "}
                 <strong className="text-zinc-800">&quot;{categoryToDelete.name}&quot;</strong>?
-                This action only deletes from local mock state in this milestone.
+                This action is permanent and will remove the category from the restaurant data.
               </p>
             </div>
 
