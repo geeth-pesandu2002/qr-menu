@@ -19,9 +19,8 @@ interface KitchenContextType {
   isAuthenticated: boolean;
   isAuthLoading: boolean;
   user: User | null;
-  authType: "firebase" | "demo" | null;
+  authType: "firebase" | null;
   login: (email: string, password?: string) => Promise<{ success: boolean; error?: string }>;
-  loginDemo: () => boolean;
   logout: () => Promise<void>;
   getAuthToken: () => Promise<string | null>;
   kitchenOrders: KitchenOrder[];
@@ -42,7 +41,7 @@ export const KitchenProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [isAuthLoading, setIsAuthLoading] = useState<boolean>(true);
   const [user, setUser] = useState<User | null>(null);
-  const [authType, setAuthType] = useState<"firebase" | "demo" | null>(null);
+  const [authType, setAuthType] = useState<"firebase" | null>(null);
 
   const [kitchenOrders, setKitchenOrders] = useState<KitchenOrder[]>([]);
   const [isLoadingOrders, setIsLoadingOrders] = useState<boolean>(false);
@@ -97,18 +96,9 @@ export const KitchenProvider: React.FC<{ children: React.ReactNode }> = ({ child
         }
       }
 
-      // If no Firebase user, check if a demo session exists
+      // If no Firebase user, reset authentication state
       try {
-        const demoToken = localStorage.getItem("dinego_demo_staff_token");
-        if (demoToken === "staff-token") {
-          if (isMountedRef.current) {
-            setUser(null);
-            setAuthType("demo");
-            setIsAuthenticated(true);
-            setIsAuthLoading(false);
-          }
-          return;
-        }
+        localStorage.removeItem("dinego_demo_staff_token");
       } catch {}
 
       if (isMountedRef.current) {
@@ -122,12 +112,8 @@ export const KitchenProvider: React.FC<{ children: React.ReactNode }> = ({ child
     return () => unsubscribe();
   }, []);
 
-  // 2. Helper to get an authenticated Bearer token (fresh Firebase token or staff-token)
+  // 2. Helper to get an authenticated Bearer token (fresh Firebase ID token)
   const getAuthToken = useCallback(async (): Promise<string | null> => {
-    if (authType === "demo") {
-      return "staff-token";
-    }
-
     if (auth.currentUser) {
       try {
         const token = await auth.currentUser.getIdToken(false);
@@ -137,15 +123,8 @@ export const KitchenProvider: React.FC<{ children: React.ReactNode }> = ({ child
       }
     }
 
-    try {
-      const demoToken = localStorage.getItem("dinego_demo_staff_token");
-      if (demoToken === "staff-token") {
-        return "staff-token";
-      }
-    } catch {}
-
     return null;
-  }, [authType]);
+  }, []);
 
   // 3. Login with Firebase Client Auth
   const login = async (
@@ -154,7 +133,7 @@ export const KitchenProvider: React.FC<{ children: React.ReactNode }> = ({ child
   ): Promise<{ success: boolean; error?: string }> => {
     try {
       setIsAuthLoading(true);
-      // Clear demo token
+      // Clean up legacy demo tokens if any
       try {
         localStorage.removeItem("dinego_demo_staff_token");
       } catch {}
@@ -196,18 +175,7 @@ export const KitchenProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
   };
 
-  // 4. Demo Login for Testing (explicit staff-token supported by backend)
-  const loginDemo = (): boolean => {
-    try {
-      localStorage.setItem("dinego_demo_staff_token", "staff-token");
-    } catch {}
-    setUser(null);
-    setAuthType("demo");
-    setIsAuthenticated(true);
-    return true;
-  };
-
-  // 5. Logout
+  // 4. Logout
   const logout = async () => {
     try {
       localStorage.removeItem("dinego_demo_staff_token");
@@ -387,7 +355,6 @@ export const KitchenProvider: React.FC<{ children: React.ReactNode }> = ({ child
         user,
         authType,
         login,
-        loginDemo,
         logout,
         getAuthToken,
         kitchenOrders,

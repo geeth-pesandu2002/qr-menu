@@ -6,7 +6,7 @@ import { useKitchen } from "@/src/context/KitchenContext";
 
 export default function KitchenLoginPage() {
   const router = useRouter();
-  const { login, loginDemo, isAuthenticated, isAuthLoading } = useKitchen();
+  const { login, isAuthenticated, isAuthLoading } = useKitchen();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -46,11 +46,7 @@ export default function KitchenLoginPage() {
     }
   };
 
-  const handleDemoLogin = () => {
-    setErrorMessage(null);
-    loginDemo();
-    router.push("/kitchen/dashboard");
-  };
+
 
   return (
     <div className="min-h-screen bg-[#121212] flex items-center justify-center p-4 sm:p-6 font-sans">
@@ -187,15 +183,6 @@ export default function KitchenLoginPage() {
                     <span>Sign In</span>
                   </>
                 )}
-              </button>
-
-              <button
-                type="button"
-                onClick={handleDemoLogin}
-                className="w-full py-2.5 rounded-xl bg-zinc-100 hover:bg-zinc-200 text-zinc-800 font-bold text-xs transition-all flex items-center justify-center gap-1.5"
-              >
-                <span>⚡</span>
-                <span>Demo Staff 1-Click Access</span>
               </button>
             </form>
 
