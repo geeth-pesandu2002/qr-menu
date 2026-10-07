@@ -238,14 +238,31 @@ export async function getMenuItems(): Promise<MenuItem[]> {
 export async function getMenuItemById(itemId: string): Promise<MenuItem | null> {
   const db = getAdminDb();
   const doc = await db.collection("menuItems").doc(itemId).get();
-  if (!doc.exists) {
-    return null;
+  if (doc.exists) {
+    const data = doc.data() as MenuItem;
+    return {
+      ...data,
+      id: data.id || doc.id,
+    };
   }
-  const data = doc.data() as MenuItem;
-  return {
-    ...data,
-    id: data.id || doc.id,
-  };
+
+  // Also check if stored field 'id' matches
+  const snapshot = await db
+    .collection("menuItems")
+    .where("id", "==", itemId)
+    .limit(1)
+    .get();
+
+  if (!snapshot.empty) {
+    const match = snapshot.docs[0];
+    const data = match.data() as MenuItem;
+    return {
+      ...data,
+      id: data.id || match.id,
+    };
+  }
+
+  return null;
 }
 
 export async function createMenuItem(
@@ -438,6 +455,20 @@ export async function getTableById(tableId: string): Promise<Table | null> {
     const data = doc.data() as Table;
     return { ...data, id: data.id || doc.id };
   }
+
+  // Also check if stored field 'id' matches
+  const snapshot = await db
+    .collection("tables")
+    .where("id", "==", tableId)
+    .limit(1)
+    .get();
+
+  if (!snapshot.empty) {
+    const match = snapshot.docs[0];
+    const data = match.data() as Table;
+    return { ...data, id: data.id || match.id };
+  }
+
   return null;
 }
 

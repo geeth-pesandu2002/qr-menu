@@ -7,7 +7,6 @@ import {
 } from "@/lib/middleware/auth";
 import {
   getMenuItemById,
-  getMenuItems,
   getTableByQRToken,
   getTableById,
   createOrder,
@@ -15,9 +14,14 @@ import {
   getOrdersBySessionId,
   getOrdersByTableAndStatus,
   getOrdersByDateRange,
+  getRestaurantSettings,
+  DEFAULT_SETTINGS,
 } from "@/lib/db-service";
 import { OrderLine, Table } from "@/lib/types";
 import { v4 as uuidv4 } from "uuid";
+
+// Business limit for maximum quantity per item line
+const MAX_ITEM_QUANTITY = 50;
 
 export async function POST(request: NextRequest) {
   try {
@@ -38,12 +42,57 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    if (!sessionId) {
+    if (!sessionId || typeof sessionId !== "string" || !sessionId.trim()) {
       sessionId = `session_${uuidv4().substring(0, 8)}`;
+    } else {
+      sessionId = sessionId.trim();
     }
 
-    const { qrToken, tableId, items, serviceChargePercent, taxPercent } = body;
+    const { qrToken, tableId, items } = body;
 
+    // 1. Table validation
+    if (!tableId && !qrToken) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "tableId or qrToken is required",
+          timestamp: Date.now(),
+        },
+        { status: 400 }
+      );
+    }
+
+    let table: Table | null = null;
+    if (tableId) {
+      table = await getTableById(String(tableId).trim());
+    }
+    if (!table && qrToken) {
+      table = await getTableByQRToken(String(qrToken).trim());
+    }
+
+    if (!table) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: `Table '${tableId || qrToken}' not found`,
+          timestamp: Date.now(),
+        },
+        { status: 404 }
+      );
+    }
+
+    if (table.isActive !== true) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: `Table '${table.label || table.id}' is not active`,
+          timestamp: Date.now(),
+        },
+        { status: 400 }
+      );
+    }
+
+    // 2. Validate items list
     if (!items || !Array.isArray(items) || items.length === 0) {
       return NextResponse.json(
         {
@@ -55,113 +104,157 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Look up table by QR token or table ID
-    let table: Table | null = null;
-    if (qrToken) {
-      table = await getTableByQRToken(qrToken);
-    }
-    if (!table && tableId) {
-      table = await getTableById(tableId);
-    }
-
-    // Fallback if table not explicitly stored
-    if (!table) {
-      const cleanId = (tableId || qrToken || "05").toString();
-      table = {
-        id: cleanId,
-        label: `Table ${cleanId.padStart(2, "0")}`,
-        isActive: true,
-      };
-    }
-
-    // Validate and build order lines
     const orderLines: OrderLine[] = [];
     let subtotal = 0;
 
-    for (const item of items) {
-      let menuItem = await getMenuItemById(item.itemId);
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
 
-      if (!menuItem) {
-        const allItems = await getMenuItems();
-        menuItem =
-          allItems.find(
-            (m) =>
-              m.id === item.itemId ||
-              (item.name && m.name.toLowerCase() === item.name.toLowerCase())
-          ) || null;
+      if (!item || typeof item !== "object") {
+        return NextResponse.json(
+          {
+            success: false,
+            error: `Item at index ${i} is invalid`,
+            timestamp: Date.now(),
+          },
+          { status: 400 }
+        );
       }
 
+      const itemId = item.itemId;
+      if (!itemId || typeof itemId !== "string" || !itemId.trim()) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: `Item at index ${i} is missing a valid itemId`,
+            timestamp: Date.now(),
+          },
+          { status: 400 }
+        );
+      }
+
+      // Quantity validation
+      const rawQty = item.qty;
+      if (
+        typeof rawQty !== "number" ||
+        isNaN(rawQty) ||
+        !Number.isInteger(rawQty) ||
+        rawQty <= 0
+      ) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: `Quantity for item '${itemId}' must be a positive integer`,
+            timestamp: Date.now(),
+          },
+          { status: 400 }
+        );
+      }
+
+      if (rawQty > MAX_ITEM_QUANTITY) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: `Quantity ${rawQty} for item '${itemId}' exceeds maximum allowed limit of ${MAX_ITEM_QUANTITY}`,
+            timestamp: Date.now(),
+          },
+          { status: 400 }
+        );
+      }
+
+      const qty = rawQty;
+
+      // Resolve real menu item from Firestore
+      const menuItem = await getMenuItemById(itemId.trim());
       if (!menuItem) {
-        if (item.name && item.unitPrice) {
-          menuItem = {
-            id: item.itemId,
-            name: item.name,
-            description: "",
-            price: Number(item.unitPrice),
-            categoryId: "general",
-            imageUrl: item.imageUrl || null,
-            isAvailable: true,
-            sortOrder: 99,
-            variants: [],
-          };
-        } else {
+        return NextResponse.json(
+          {
+            success: false,
+            error: `Menu item '${itemId}' not found in database`,
+            timestamp: Date.now(),
+          },
+          { status: 404 }
+        );
+      }
+
+      if (!menuItem.isAvailable) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: `Menu item '${menuItem.name}' is currently unavailable`,
+            timestamp: Date.now(),
+          },
+          { status: 400 }
+        );
+      }
+
+      // Price validation: strictly resolve trusted price and variant from database
+      let unitPrice: number = menuItem.price;
+      let variantLabel: string | null = null;
+
+      if (item.variantLabel && typeof item.variantLabel === "string" && item.variantLabel.trim()) {
+        const reqVariantLabel = item.variantLabel.trim();
+        const matchedVariant = menuItem.variants?.find(
+          (v) => v.label.toLowerCase() === reqVariantLabel.toLowerCase()
+        );
+        if (!matchedVariant) {
           return NextResponse.json(
             {
               success: false,
-              error: `Item ${item.itemId} not found`,
+              error: `Variant '${reqVariantLabel}' not found for item '${menuItem.name}'`,
               timestamp: Date.now(),
             },
-            { status: 404 }
+            { status: 400 }
           );
         }
+        unitPrice = matchedVariant.price;
+        variantLabel = matchedVariant.label;
       }
 
-      // Determine unit price (with or without variant)
-      let unitPrice = menuItem.price;
-      let variantLabel: string | null = null;
-
-      if (item.variantLabel && menuItem.variants && menuItem.variants.length > 0) {
-        const variant = menuItem.variants.find(
-          (v) => v.label === item.variantLabel
+      if (typeof unitPrice !== "number" || isNaN(unitPrice) || unitPrice < 0) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: `Invalid price configured for menu item '${menuItem.name}'`,
+            timestamp: Date.now(),
+          },
+          { status: 500 }
         );
-        if (variant) {
-          unitPrice = variant.price;
-          variantLabel = variant.label;
-        }
-      } else if (item.unitPrice) {
-        unitPrice = Number(item.unitPrice);
-        variantLabel = item.variantLabel || null;
       }
 
-      const qty = Number(item.qty) || 1;
       const lineTotal = unitPrice * qty;
+      subtotal += lineTotal;
+
+      const note = typeof item.note === "string" ? item.note.trim().slice(0, 500) : "";
 
       orderLines.push({
-        id: `${menuItem.id}_${Date.now()}`,
+        id: `${menuItem.id}_${Date.now()}_${i}`,
         itemId: menuItem.id,
-        name: menuItem.name,
-        variantLabel,
-        unitPrice,
-        qty,
-        note: item.note || "",
-        imageUrl: item.imageUrl || menuItem.imageUrl || null,
-        lineTotal,
+        name: menuItem.name,       // Trusted server name
+        variantLabel,              // Trusted variant label
+        unitPrice,                 // Trusted server price
+        qty,                       // Validated integer qty
+        note,
+        imageUrl: menuItem.imageUrl || null, // Trusted server image
+        lineTotal,                 // Authoritative line total
       });
-
-      subtotal += lineTotal;
     }
 
-    // Calculate tax and service charge
-    const tax = Math.round((subtotal * (taxPercent ?? 10)) / 100);
-    const serviceCharge = Math.round(
-      (subtotal * (serviceChargePercent ?? 5)) / 100
-    );
+    // Server-side tax & service charge calculation using trusted restaurant settings
+    const settings = await getRestaurantSettings().catch(() => DEFAULT_SETTINGS);
+    const serviceChargePercent =
+      typeof settings?.serviceCharge === "number" ? settings.serviceCharge : 5;
+    const taxPercent =
+      typeof settings?.taxRate === "number" ? settings.taxRate : 10;
+
+    const tax = Math.round((subtotal * taxPercent) / 100);
+    const serviceCharge = Math.round((subtotal * serviceChargePercent) / 100);
 
     // Create order in store
     const order = await createOrder(
       table.id,
       table.label,
-      table.qrToken || qrToken || "",
+      table.qrToken || (typeof qrToken === "string" ? qrToken : ""),
       sessionId,
       orderLines,
       tax,
@@ -191,60 +284,78 @@ export async function GET(request: NextRequest) {
     const startDate = request.nextUrl.searchParams.get("startDate");
     const endDate = request.nextUrl.searchParams.get("endDate");
 
-    // If specific session requested (diner order history)
-    if (sessionId) {
-      const orders = await getOrdersBySessionId(sessionId);
-      return NextResponse.json(
-        {
-          success: true,
-          data: orders,
-          timestamp: Date.now(),
-        },
-        { status: 200 }
-      );
-    }
-
-    // If specific table requested
-    if (tableId) {
-      const orders = await getOrdersByTableAndStatus(tableId);
-      return NextResponse.json(
-        {
-          success: true,
-          data: orders,
-          timestamp: Date.now(),
-        },
-        { status: 200 }
-      );
-    }
-
-    // If authenticated staff/owner
+    // 1. If Authorization header is provided, strictly verify it
     if (authHeader) {
       try {
         const token = await verifyToken(authHeader);
+
+        // Staff / Owner roles have full access
         if (token.role === "kitchen" || token.role === "owner") {
           if (startDate && endDate) {
             const orders = await getOrdersByDateRange(
-              parseInt(startDate),
-              parseInt(endDate)
+              parseInt(startDate, 10),
+              parseInt(endDate, 10)
             );
             return NextResponse.json(
               { success: true, data: orders, timestamp: Date.now() },
               { status: 200 }
             );
           }
+          if (tableId) {
+            const orders = await getOrdersByTableAndStatus(tableId);
+            return NextResponse.json(
+              { success: true, data: orders, timestamp: Date.now() },
+              { status: 200 }
+            );
+          }
+          if (sessionId) {
+            const orders = await getOrdersBySessionId(sessionId);
+            return NextResponse.json(
+              { success: true, data: orders, timestamp: Date.now() },
+              { status: 200 }
+            );
+          }
+
           const orders = await getAllOrders();
           return NextResponse.json(
             { success: true, data: orders, timestamp: Date.now() },
             { status: 200 }
           );
         }
-      } catch {
-        // Fall through to general orders
+
+        // Authenticated customer role - scoped to their session/UID
+        const effectiveSessionId = sessionId || token.uid;
+        const orders = await getOrdersBySessionId(effectiveSessionId);
+        return NextResponse.json(
+          { success: true, data: orders, timestamp: Date.now() },
+          { status: 200 }
+        );
+      } catch (authErr) {
+        // If an explicit Authorization header was provided but invalid, reject immediately
+        return errorResponse(authErr, 401);
       }
     }
 
-    // Default: Return all active orders (for kitchen dashboard / demo portal)
-    const orders = await getAllOrders();
+    // 2. Unauthenticated / Anonymous diner requests:
+    // Anonymous/customer requests must require sessionId.
+    // tableId may be used only as an additional filter after valid customer/session scoping,
+    // not as the sole authorization scope.
+    if (!sessionId || !sessionId.trim()) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Authentication or valid sessionId query parameter is required to view orders.",
+          timestamp: Date.now(),
+        },
+        { status: 401 }
+      );
+    }
+
+    let orders = await getOrdersBySessionId(sessionId.trim());
+    if (tableId) {
+      orders = orders.filter((o) => o.tableId === tableId.trim());
+    }
+
     return NextResponse.json(
       {
         success: true,
