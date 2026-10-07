@@ -8,7 +8,9 @@ import {
 import {
   getOrderById,
   updateOrderStatus,
+  StatusTransitionError,
 } from "@/lib/db-service";
+import { OrderStatus } from "@/lib/types";
 
 export async function GET(
   request: NextRequest,
@@ -134,6 +136,24 @@ export async function PATCH(
       );
     }
 
+    const validStatuses: OrderStatus[] = [
+      "RECEIVED",
+      "PREPARING",
+      "SERVED",
+      "COMPLETED",
+      "CANCELLED",
+    ];
+    if (!validStatuses.includes(body.status)) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: `Invalid status '${body.status}'. Valid statuses: ${validStatuses.join(", ")}`,
+          timestamp: Date.now(),
+        },
+        { status: 400 }
+      );
+    }
+
     const order = await updateOrderStatus(id, body.status, token.uid);
 
     return NextResponse.json(
@@ -141,6 +161,24 @@ export async function PATCH(
       { status: 200 }
     );
   } catch (error) {
+    if (error instanceof StatusTransitionError) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: error.message,
+          currentStatus: error.currentStatus,
+          requestedStatus: error.requestedStatus,
+          timestamp: Date.now(),
+        },
+        { status: 409 }
+      );
+    }
+    if (error instanceof Error && error.message === "Order not found") {
+      return NextResponse.json(
+        { success: false, error: "Order not found", timestamp: Date.now() },
+        { status: 404 }
+      );
+    }
     return errorResponse(error);
   }
 }

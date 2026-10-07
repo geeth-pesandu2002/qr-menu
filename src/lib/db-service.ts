@@ -10,6 +10,7 @@ import {
   OrderLine,
   OrderStatus,
   isValidStatusTransition,
+  ALLOWED_STATUS_TRANSITIONS,
   StatusHistory,
   DashboardStats,
   TopItem,
@@ -175,6 +176,20 @@ export async function getOrdersByDateRange(
   });
 }
 
+export class StatusTransitionError extends Error {
+  constructor(
+    public currentStatus: OrderStatus,
+    public requestedStatus: OrderStatus,
+    message?: string
+  ) {
+    super(
+      message ||
+        `Invalid order status transition from '${currentStatus}' to '${requestedStatus}'.`
+    );
+    this.name = "StatusTransitionError";
+  }
+}
+
 export async function updateOrderStatus(
   orderId: string,
   newStatus: OrderStatus,
@@ -189,8 +204,15 @@ export async function updateOrderStatus(
 
   const order = doc.data() as Order;
 
-  if (order.status !== newStatus && !isValidStatusTransition(order.status, newStatus)) {
-    console.warn(`Status transition from ${order.status} to ${newStatus} allowed in flexible mode`);
+  if (!isValidStatusTransition(order.status, newStatus)) {
+    const allowed = ALLOWED_STATUS_TRANSITIONS[order.status] || [];
+    const allowedStr =
+      allowed.length > 0 ? allowed.join(", ") : "none (terminal state)";
+    throw new StatusTransitionError(
+      order.status,
+      newStatus,
+      `Invalid order status transition from '${order.status}' to '${newStatus}'. Allowed transitions from '${order.status}': [${allowedStr}].`
+    );
   }
 
   const statusHistory: StatusHistory = {
