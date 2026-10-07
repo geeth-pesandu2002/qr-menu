@@ -174,7 +174,7 @@ export default function KitchenOrderDetailPage({
             className="px-4 py-2 rounded-xl bg-zinc-100 hover:bg-zinc-200 text-zinc-800 font-bold text-xs flex items-center gap-2 transition-all"
           >
             <span>🖨️</span>
-            <span>Print Ticket</span>
+            <span>Print Bill</span>
           </button>
         </div>
 
@@ -322,12 +322,12 @@ export default function KitchenOrderDetailPage({
         </div>
       </div>
 
-      {/* Printable Ticket Modal */}
+      {/* Printable Bill Modal */}
       {showPrintModal && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="w-full max-w-sm bg-white p-6 rounded-3xl shadow-2xl space-y-4 text-center font-mono">
             <div className="border-b border-dashed border-zinc-400 pb-3">
-              <h3 className="font-black text-lg text-black">*** KITCHEN TICKET ***</h3>
+              <h3 className="font-black text-lg text-black">*** ORDER BILL ***</h3>
               <p className="text-xs text-zinc-600">{order.tableLabel} • ORDER #{order.id}</p>
               <p className="text-[11px] text-zinc-500 mt-1">
                 {new Date(order.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
@@ -356,7 +356,7 @@ export default function KitchenOrderDetailPage({
                 }}
                 className="w-full py-3 rounded-full bg-[#121212] text-white font-bold text-xs"
               >
-                🖨️ Print Ticket
+                🖨️ Print Bill
               </button>
               <button
                 onClick={() => setShowPrintModal(false)}
