@@ -1,40 +1,16 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { MenuItem, Category, formatPrice } from "@/src/lib/types";
+import { getAuthHeaders } from "@/src/lib/auth-client";
 import { mockCategories, mockMenuItems } from "@/src/mock/menuData";
 
-// Initial mock items list with a couple of unavailable items for realistic demo
-const INITIAL_ADMIN_MENU_ITEMS: MenuItem[] = [
-  ...mockMenuItems,
-  {
-    id: "d3",
-    name: "Fresh Strawberry Shake",
-    description: "Seasonal fresh strawberries blended with chilled fresh milk",
-    price: 850,
-    categoryId: "drinks",
-    imageUrl: "https://images.unsplash.com/photo-1553530666-ba11a7da3888?w=600&auto=format&fit=crop&q=80",
-    isAvailable: false, // Unavailable demonstration
-    sortOrder: 8,
-    variants: [],
-  },
-  {
-    id: "des2",
-    name: "Classic Tiramisu",
-    description: "Traditional Italian dessert with mascarpone and espresso soaked biscuits",
-    price: 950,
-    categoryId: "desserts",
-    imageUrl: "https://images.unsplash.com/photo-1571877227200-a0d98ea607e9?w=600&auto=format&fit=crop&q=80",
-    isAvailable: false, // Unavailable demonstration
-    sortOrder: 9,
-    variants: [],
-  },
-];
+const INITIAL_ADMIN_MENU_ITEMS: MenuItem[] = [];
 
 export default function AdminMenuPage() {
   const [items, setItems] = useState<MenuItem[]>(INITIAL_ADMIN_MENU_ITEMS);
-  const [categories] = useState<Category[]>(mockCategories);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [selectedCategory, setSelectedCategory] = useState<string>("ALL");
   const [selectedAvailability, setSelectedAvailability] = useState<
@@ -43,29 +19,98 @@ export default function AdminMenuPage() {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [itemToDelete, setItemToDelete] = useState<MenuItem | null>(null);
 
+  // Live menu data loading from backend
+  useEffect(() => {
+    let isMounted = true;
+    async function loadMenuData() {
+      try {
+        const [itemsRes, catRes] = await Promise.all([
+          fetch("/api/menu-items"),
+          fetch("/api/categories"),
+        ]);
+        if (itemsRes.ok) {
+          const itemsJson = await itemsRes.json();
+          if (itemsJson.success && Array.isArray(itemsJson.data) && isMounted) {
+            setItems(itemsJson.data);
+          }
+        }
+        if (catRes.ok) {
+          const catJson = await catRes.json();
+          if (catJson.success && Array.isArray(catJson.data) && isMounted) {
+            setCategories(catJson.data);
+          }
+        }
+      } catch (err) {
+        console.warn("Could not fetch live menu data for admin:", err);
+      }
+    }
+    loadMenuData();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
   // Compute summary stats
   const totalItems = items.length;
   const availableItems = items.filter((item) => item.isAvailable).length;
   const unavailableItems = items.filter((item) => !item.isAvailable).length;
   const totalCategories = categories.length;
 
-  // Toggle single item availability
-  const handleToggleAvailability = (itemId: string) => {
+  // Toggle single item availability with backend sync
+  const handleToggleAvailability = async (itemId: string) => {
+    let newAvail = true;
     setItems((prev) =>
-      prev.map((item) =>
-        item.id === itemId
-          ? { ...item, isAvailable: !item.isAvailable, updatedAt: Date.now() }
-          : item
-      )
+      prev.map((item) => {
+        if (item.id === itemId) {
+          newAvail = !item.isAvailable;
+          return { ...item, isAvailable: newAvail, updatedAt: Date.now() };
+        }
+        return item;
+      })
     );
+
+    try {
+      const authHeaders = await getAuthHeaders();
+      const res = await fetch(`/api/menu-items/${itemId}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          ...authHeaders,
+        },
+        body: JSON.stringify({ isAvailable: newAvail }),
+      });
+      if (!res.ok) {
+        const json = await res.json().catch(() => ({}));
+        console.error("Failed to update item availability:", json.error || res.statusText);
+      }
+    } catch (err) {
+      console.warn("Failed to update availability on server:", err);
+    }
   };
 
-  // Delete item handler (local mock state only)
-  const confirmDelete = () => {
+  // Delete item handler with backend sync
+  const confirmDelete = async () => {
     if (!itemToDelete) return;
-    setItems((prev) => prev.filter((i) => i.id !== itemToDelete.id));
-    setSelectedIds((prev) => prev.filter((id) => id !== itemToDelete.id));
+    const deletedId = itemToDelete.id;
     setItemToDelete(null);
+
+    try {
+      const authHeaders = await getAuthHeaders();
+      const res = await fetch(`/api/menu-items/${deletedId}`, {
+        method: "DELETE",
+        headers: authHeaders,
+      });
+
+      if (res.ok) {
+        setItems((prev) => prev.filter((i) => i.id !== deletedId));
+        setSelectedIds((prev) => prev.filter((id) => id !== deletedId));
+      } else {
+        const json = await res.json().catch(() => ({}));
+        alert(`Failed to delete menu item: ${json.error || res.statusText}`);
+      }
+    } catch (err) {
+      console.warn("Failed to delete menu item on server:", err);
+    }
   };
 
   // Checkbox handlers

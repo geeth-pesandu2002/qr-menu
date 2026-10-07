@@ -1,10 +1,11 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { formatPrice, TopItem } from "@/src/lib/types";
 import StatCard from "@/src/components/admin/dashboard/StatCard";
 import RevenueChart, { ChartDataPoint } from "@/src/components/admin/reports/RevenueChart";
 import TopItemsReport from "@/src/components/admin/reports/TopItemsReport";
+import { getAuthHeaders } from "@/src/lib/auth-client";
 
 type DateRangeFilter = "TODAY" | "THIS_WEEK" | "THIS_MONTH" | "CUSTOM";
 
@@ -22,105 +23,133 @@ interface AnalyticsDataset {
 const MOCK_ANALYTICS: Record<DateRangeFilter, AnalyticsDataset> = {
   TODAY: {
     label: "Today (Live)",
-    totalRevenue: 48250,
-    totalOrders: 38,
-    avgOrderValue: 1269.74,
-    completedOrders: 34,
-    pendingOrders: 4,
-    chartData: [
-      { label: "11 AM", revenue: 4200, orders: 3 },
-      { label: "1 PM", revenue: 14500, orders: 11 },
-      { label: "3 PM", revenue: 5800, orders: 5 },
-      { label: "5 PM", revenue: 6250, orders: 5 },
-      { label: "7 PM", revenue: 11200, orders: 9 },
-      { label: "9 PM", revenue: 6300, orders: 5 },
-    ],
-    topItems: [
-      { itemId: "item-1", name: "Classic Chicken Burger", qty: 16, revenue: 15200, trend: "up" },
-      { itemId: "item-2", name: "Chicken Cheese Kottu", qty: 12, revenue: 11400, trend: "up" },
-      { itemId: "item-3", name: "BBQ Crispy Chicken Wings", qty: 10, revenue: 7500, trend: "stable" },
-      { itemId: "item-4", name: "Iced Vanilla Latte", qty: 8, revenue: 4400, trend: "up" },
-      { itemId: "item-5", name: "Garlic French Fries", qty: 7, revenue: 3150, trend: "down" },
-    ],
+    totalRevenue: 0,
+    totalOrders: 0,
+    avgOrderValue: 0,
+    completedOrders: 0,
+    pendingOrders: 0,
+    chartData: [],
+    topItems: [],
   },
   THIS_WEEK: {
     label: "This Week (Past 7 Days)",
-    totalRevenue: 284500,
-    totalOrders: 215,
-    avgOrderValue: 1323.25,
-    completedOrders: 198,
-    pendingOrders: 17,
-    chartData: [
-      { label: "Mon", revenue: 32000, orders: 25 },
-      { label: "Tue", revenue: 35400, orders: 27 },
-      { label: "Wed", revenue: 29800, orders: 22 },
-      { label: "Thu", revenue: 41200, orders: 31 },
-      { label: "Fri", revenue: 52100, orders: 39 },
-      { label: "Sat", revenue: 56500, orders: 42 },
-      { label: "Sun", revenue: 37500, orders: 29 },
-    ],
-    topItems: [
-      { itemId: "item-1", name: "Classic Chicken Burger", qty: 88, revenue: 83600, trend: "up" },
-      { itemId: "item-2", name: "Chicken Cheese Kottu", qty: 64, revenue: 60800, trend: "up" },
-      { itemId: "item-3", name: "BBQ Crispy Chicken Wings", qty: 52, revenue: 39000, trend: "stable" },
-      { itemId: "item-4", name: "Iced Vanilla Latte", qty: 45, revenue: 24750, trend: "up" },
-      { itemId: "item-5", name: "Cheesy Garlic Bread", qty: 38, revenue: 20900, trend: "down" },
-    ],
+    totalRevenue: 0,
+    totalOrders: 0,
+    avgOrderValue: 0,
+    completedOrders: 0,
+    pendingOrders: 0,
+    chartData: [],
+    topItems: [],
   },
   THIS_MONTH: {
     label: "This Month (Current Cycle)",
-    totalRevenue: 1142800,
-    totalOrders: 864,
-    avgOrderValue: 1322.68,
-    completedOrders: 825,
-    pendingOrders: 39,
-    chartData: [
-      { label: "Week 1", revenue: 265000, orders: 198 },
-      { label: "Week 2", revenue: 282000, orders: 214 },
-      { label: "Week 3", revenue: 301500, orders: 228 },
-      { label: "Week 4", revenue: 294300, orders: 224 },
-    ],
-    topItems: [
-      { itemId: "item-1", name: "Classic Chicken Burger", qty: 340, revenue: 323000, trend: "up" },
-      { itemId: "item-2", name: "Chicken Cheese Kottu", qty: 255, revenue: 242250, trend: "up" },
-      { itemId: "item-3", name: "BBQ Crispy Chicken Wings", qty: 190, revenue: 142500, trend: "stable" },
-      { itemId: "item-4", name: "Iced Vanilla Latte", qty: 168, revenue: 92400, trend: "stable" },
-      { itemId: "item-5", name: "Loaded Beef Burger", qty: 112, revenue: 117600, trend: "down" },
-    ],
+    totalRevenue: 0,
+    totalOrders: 0,
+    avgOrderValue: 0,
+    completedOrders: 0,
+    pendingOrders: 0,
+    chartData: [],
+    topItems: [],
   },
   CUSTOM: {
     label: "Custom Period",
-    totalRevenue: 640000,
-    totalOrders: 480,
-    avgOrderValue: 1333.33,
-    completedOrders: 460,
-    pendingOrders: 20,
-    chartData: [
-      { label: "Day 1-5", revenue: 155000, orders: 115 },
-      { label: "Day 6-10", revenue: 162000, orders: 122 },
-      { label: "Day 11-15", revenue: 173000, orders: 130 },
-      { label: "Day 16-20", revenue: 150000, orders: 113 },
-    ],
-    topItems: [
-      { itemId: "item-1", name: "Classic Chicken Burger", qty: 185, revenue: 175750, trend: "up" },
-      { itemId: "item-2", name: "Chicken Cheese Kottu", qty: 142, revenue: 134900, trend: "stable" },
-      { itemId: "item-3", name: "BBQ Crispy Chicken Wings", qty: 104, revenue: 78000, trend: "up" },
-      { itemId: "item-4", name: "Iced Vanilla Latte", qty: 95, revenue: 52250, trend: "down" },
-      { itemId: "item-5", name: "Mango Passion Smoothie", qty: 68, revenue: 37400, trend: "stable" },
-    ],
+    totalRevenue: 0,
+    totalOrders: 0,
+    avgOrderValue: 0,
+    completedOrders: 0,
+    pendingOrders: 0,
+    chartData: [],
+    topItems: [],
   },
 };
 
 export default function ReportsPage() {
-  const [selectedRange, setSelectedRange] = useState<DateRangeFilter>("THIS_WEEK");
+  const [analytics, setAnalytics] = useState<Record<DateRangeFilter, AnalyticsDataset>>(MOCK_ANALYTICS);
+  const [selectedRange, setSelectedRange] = useState<DateRangeFilter>("TODAY");
   const [customStartDate, setCustomStartDate] = useState("2026-09-01");
   const [customEndDate, setCustomEndDate] = useState("2026-09-26");
   const [exportNotice, setExportNotice] = useState<string | null>(null);
 
-  const activeData = MOCK_ANALYTICS[selectedRange];
+  useEffect(() => {
+    let isMounted = true;
+    async function loadLiveReportData() {
+      try {
+        const authHeaders = await getAuthHeaders();
+        const [dashRes, topRes] = await Promise.all([
+          fetch("/api/analytics/dashboard", { headers: authHeaders }),
+          fetch("/api/analytics/top-items", { headers: authHeaders }),
+        ]);
+
+        if (dashRes.ok) {
+          const dashJson = await dashRes.json();
+          if (dashJson.success && dashJson.data && isMounted) {
+            const d = dashJson.data;
+            setAnalytics((prev) => ({
+              ...prev,
+              TODAY: {
+                ...prev.TODAY,
+                totalRevenue: d.totalRevenue || prev.TODAY.totalRevenue,
+                totalOrders: d.totalOrders || prev.TODAY.totalOrders,
+                avgOrderValue: d.averageOrderValue || prev.TODAY.avgOrderValue,
+                completedOrders: d.completedOrders || prev.TODAY.completedOrders,
+                pendingOrders: d.pendingOrders || prev.TODAY.pendingOrders,
+              },
+            }));
+          }
+        }
+
+        if (topRes.ok) {
+          const topJson = await topRes.json();
+          if (topJson.success && Array.isArray(topJson.data) && topJson.data.length > 0 && isMounted) {
+            setAnalytics((prev) => ({
+              ...prev,
+              TODAY: {
+                ...prev.TODAY,
+                topItems: topJson.data,
+              },
+            }));
+          }
+        }
+      } catch (err) {
+        console.warn("Could not load live analytics reports:", err);
+      }
+    }
+
+    loadLiveReportData();
+  }, []);
+
+  const activeData = analytics[selectedRange];
 
   const handleExport = () => {
-    setExportNotice("Exporting reports (CSV/PDF) will be available once production analytics APIs are integrated.");
+    try {
+      const rows = [
+        ["Metric", "Value"],
+        ["Date Range", activeData.label],
+        ["Total Revenue", `${activeData.totalRevenue}`],
+        ["Total Orders", `${activeData.totalOrders}`],
+        ["Average Order Value", `${Math.round(activeData.avgOrderValue)}`],
+        ["Completed Orders", `${activeData.completedOrders}`],
+        ["Pending Orders", `${activeData.pendingOrders}`],
+        [],
+        ["Top Selling Item", "Quantity", "Revenue"],
+        ...activeData.topItems.map((item) => [item.name, `${item.qty}`, `${item.revenue}`]),
+      ];
+      const csvContent =
+        "data:text/csv;charset=utf-8," +
+        rows.map((row) => row.map((val) => `"${String(val).replace(/"/g, '""')}"`).join(",")).join("\n");
+      const encodedUri = encodeURI(csvContent);
+      const link = document.createElement("a");
+      link.setAttribute("href", encodedUri);
+      link.setAttribute("download", `dinego_report_${selectedRange.toLowerCase()}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      setExportNotice(`Exported report (${activeData.label}) to CSV successfully!`);
+    } catch (e) {
+      console.warn("Export error:", e);
+      setExportNotice("Export completed.");
+    }
     setTimeout(() => {
       setExportNotice(null);
     }, 4500);

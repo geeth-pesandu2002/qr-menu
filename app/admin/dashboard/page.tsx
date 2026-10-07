@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import {
   DashboardStats,
@@ -10,166 +10,81 @@ import {
 } from "@/src/lib/types";
 import StatCard from "@/src/components/admin/dashboard/StatCard";
 import OrderStatusBadge from "@/src/components/admin/orders/OrderStatusBadge";
+import { getAuthHeaders } from "@/src/lib/auth-client";
 
-// Mock Dashboard Statistics matching DashboardStats interface
-const MOCK_DASHBOARD_STATS: DashboardStats = {
-  totalOrders: 48,
-  totalRevenue: 78650,
-  averageOrderValue: 1638.54,
-  completedOrders: 39,
-  pendingOrders: 9,
+// Dashboard Statistics matching DashboardStats interface
+const INITIAL_DASHBOARD_STATS: DashboardStats = {
+  totalOrders: 0,
+  totalRevenue: 0,
+  averageOrderValue: 0,
+  completedOrders: 0,
+  pendingOrders: 0,
   dateRange: {
     start: new Date().setHours(0, 0, 0, 0),
     end: Date.now(),
   },
 };
 
-// Mock Top Selling Items matching TopItem interface
-const MOCK_TOP_ITEMS: TopItem[] = [
-  {
-    itemId: "kottu-chicken",
-    name: "Chicken Kottu",
-    qty: 34,
-    revenue: 28900,
-    trend: "up",
-  },
-  {
-    itemId: "burger-cheese",
-    name: "Cheese Burger Deluxe",
-    qty: 26,
-    revenue: 22100,
-    trend: "up",
-  },
-  {
-    itemId: "pizza-margherita",
-    name: "Margherita Pizza",
-    qty: 18,
-    revenue: 16200,
-    trend: "stable",
-  },
-  {
-    itemId: "short-eats-fish-bun",
-    name: "Spicy Fish Bun",
-    qty: 42,
-    revenue: 7560,
-    trend: "up",
-  },
-  {
-    itemId: "bev-iced-latte",
-    name: "Caramel Iced Latte",
-    qty: 15,
-    revenue: 3890,
-    trend: "down",
-  },
-];
-
-// Mock Recent Orders strictly using allowed OrderStatus values
-const MOCK_RECENT_ORDERS: Order[] = [
-  {
-    id: "1048",
-    tableId: "05",
-    tableLabel: "Table 05",
-    sessionId: "sess_1048",
-    status: "RECEIVED",
-    lines: [
-      { itemId: "k1", name: "Chicken Kottu", variantLabel: "Large", unitPrice: 1100, qty: 2, note: "Extra spicy" },
-      { itemId: "d1", name: "Coke Can", variantLabel: null, unitPrice: 300, qty: 2, note: "" },
-    ],
-    subtotal: 2800,
-    serviceCharge: 140,
-    tax: 280,
-    total: 3220,
-    createdAt: Date.now() - 1000 * 60 * 3, // 3 mins ago
-    updatedAt: Date.now() - 1000 * 60 * 3,
-  },
-  {
-    id: "1047",
-    tableId: "02",
-    tableLabel: "Table 02",
-    sessionId: "sess_1047",
-    status: "PREPARING",
-    lines: [
-      { itemId: "p1", name: "Margherita Pizza", variantLabel: null, unitPrice: 1500, qty: 1, note: "Crispy crust" },
-      { itemId: "f1", name: "French Fries", variantLabel: null, unitPrice: 500, qty: 1, note: "" },
-    ],
-    subtotal: 2000,
-    serviceCharge: 100,
-    tax: 200,
-    total: 2300,
-    createdAt: Date.now() - 1000 * 60 * 11, // 11 mins ago
-    updatedAt: Date.now() - 1000 * 60 * 4,
-  },
-  {
-    id: "1046",
-    tableId: "08",
-    tableLabel: "Table 08",
-    sessionId: "sess_1046",
-    status: "PREPARING",
-    lines: [
-      { itemId: "b2", name: "Beef Burger Deluxe", variantLabel: null, unitPrice: 1350, qty: 2, note: "No pickles" },
-      { itemId: "d2", name: "Iced Coffee", variantLabel: "Regular", unitPrice: 600, qty: 2, note: "" },
-    ],
-    subtotal: 3900,
-    serviceCharge: 195,
-    tax: 390,
-    total: 4485,
-    createdAt: Date.now() - 1000 * 60 * 18, // 18 mins ago
-    updatedAt: Date.now() - 1000 * 60 * 8,
-  },
-  {
-    id: "1045",
-    tableId: "03",
-    tableLabel: "Table 03",
-    sessionId: "sess_1045",
-    status: "SERVED",
-    lines: [
-      { itemId: "pa1", name: "Creamy Chicken Pasta", variantLabel: null, unitPrice: 1400, qty: 1, note: "" },
-      { itemId: "g1", name: "Garlic Bread", variantLabel: null, unitPrice: 400, qty: 1, note: "" },
-    ],
-    subtotal: 1800,
-    serviceCharge: 90,
-    tax: 180,
-    total: 2070,
-    createdAt: Date.now() - 1000 * 60 * 25, // 25 mins ago
-    updatedAt: Date.now() - 1000 * 60 * 12,
-  },
-  {
-    id: "1044",
-    tableId: "07",
-    tableLabel: "Table 07",
-    sessionId: "sess_1044",
-    status: "COMPLETED",
-    lines: [
-      { itemId: "cs1", name: "Caesar Salad", variantLabel: null, unitPrice: 1100, qty: 2, note: "" },
-      { itemId: "l1", name: "Fresh Lemonade", variantLabel: null, unitPrice: 650, qty: 2, note: "Less sugar" },
-    ],
-    subtotal: 3500,
-    serviceCharge: 175,
-    tax: 350,
-    total: 4025,
-    createdAt: Date.now() - 1000 * 60 * 48, // 48 mins ago
-    updatedAt: Date.now() - 1000 * 60 * 15,
-  },
-];
+const MOCK_TOP_ITEMS: TopItem[] = [];
+const MOCK_RECENT_ORDERS: Order[] = [];
 
 // Hourly distribution for today's sales & orders chart
 const HOURLY_SALES_DATA = [
-  { hour: "9 AM", orders: 2, revenue: 3200, height: "15%" },
-  { hour: "10 AM", orders: 3, revenue: 4800, height: "22%" },
-  { hour: "11 AM", orders: 5, revenue: 8100, height: "38%" },
-  { hour: "12 PM", orders: 8, revenue: 13500, height: "64%" },
-  { hour: "1 PM", orders: 11, revenue: 18200, height: "86%" },
-  { hour: "2 PM", orders: 7, revenue: 11400, height: "54%" },
-  { hour: "3 PM", orders: 3, revenue: 4900, height: "23%" },
-  { hour: "4 PM", orders: 4, revenue: 6200, height: "29%" },
-  { hour: "5 PM", orders: 6, revenue: 9800, height: "46%" },
-  { hour: "6 PM", orders: 9, revenue: 14750, height: "70%" },
-  { hour: "7 PM", orders: 12, revenue: 21500, height: "100%" },
-  { hour: "8 PM", orders: 8, revenue: 12800, height: "60%" },
+  { hour: "9 AM", orders: 0, revenue: 0, height: "5%" },
+  { hour: "10 AM", orders: 0, revenue: 0, height: "5%" },
+  { hour: "11 AM", orders: 0, revenue: 0, height: "5%" },
+  { hour: "12 PM", orders: 0, revenue: 0, height: "5%" },
+  { hour: "1 PM", orders: 0, revenue: 0, height: "5%" },
+  { hour: "2 PM", orders: 0, revenue: 0, height: "5%" },
+  { hour: "3 PM", orders: 0, revenue: 0, height: "5%" },
+  { hour: "4 PM", orders: 0, revenue: 0, height: "5%" },
+  { hour: "5 PM", orders: 0, revenue: 0, height: "5%" },
+  { hour: "6 PM", orders: 0, revenue: 0, height: "5%" },
+  { hour: "7 PM", orders: 0, revenue: 0, height: "5%" },
+  { hour: "8 PM", orders: 0, revenue: 0, height: "5%" },
 ];
 
 export default function AdminDashboardPage() {
-  const [selectedHourlyBar, setSelectedHourlyBar] = useState<number | null>(10); // Default 7 PM peak
+  const [stats, setStats] = useState<DashboardStats>(INITIAL_DASHBOARD_STATS);
+  const [recentOrders, setRecentOrders] = useState<Order[]>(MOCK_RECENT_ORDERS);
+  const [selectedHourlyBar, setSelectedHourlyBar] = useState<number | null>(null);
+
+  useEffect(() => {
+    let isMounted = true;
+    async function loadDashboard() {
+      try {
+        const authHeaders = await getAuthHeaders();
+        const [statsRes, ordersRes] = await Promise.all([
+          fetch("/api/analytics/dashboard", {
+            headers: authHeaders,
+          }),
+          fetch("/api/orders", {
+            headers: authHeaders,
+          }),
+        ]);
+        if (statsRes.ok) {
+          const statsJson = await statsRes.json();
+          if (statsJson.success && statsJson.data && isMounted) {
+            setStats(statsJson.data);
+          }
+        }
+        if (ordersRes.ok) {
+          const ordersJson = await ordersRes.json();
+          if (ordersJson.success && Array.isArray(ordersJson.data) && ordersJson.data.length > 0 && isMounted) {
+            setRecentOrders(ordersJson.data.slice(0, 8));
+          }
+        }
+      } catch (err) {
+        console.warn("Could not load live analytics:", err);
+      }
+    }
+    loadDashboard();
+    const interval = setInterval(loadDashboard, 8000);
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, []);
 
   return (
     <div className="space-y-8 font-sans pb-12">
@@ -219,7 +134,7 @@ export default function AdminDashboardPage() {
         {/* 1. Total Orders */}
         <StatCard
           title="Total Orders"
-          value={MOCK_DASHBOARD_STATS.totalOrders}
+          value={stats.totalOrders}
           subtitle="All tickets today"
           icon="📦"
           accentColor="orange"
@@ -229,7 +144,7 @@ export default function AdminDashboardPage() {
         {/* 2. Total Revenue */}
         <StatCard
           title="Total Revenue"
-          value={formatPrice(MOCK_DASHBOARD_STATS.totalRevenue)}
+          value={formatPrice(stats.totalRevenue)}
           subtitle="Net sales (incl. tax)"
           icon="💰"
           accentColor="green"
@@ -239,7 +154,7 @@ export default function AdminDashboardPage() {
         {/* 3. Average Order Value */}
         <StatCard
           title="Average Order"
-          value={formatPrice(Math.round(MOCK_DASHBOARD_STATS.averageOrderValue))}
+          value={formatPrice(Math.round(stats.averageOrderValue || 0))}
           subtitle="Per customer ticket"
           icon="🏷️"
           accentColor="zinc"
@@ -249,7 +164,7 @@ export default function AdminDashboardPage() {
         {/* 4. Completed Orders */}
         <StatCard
           title="Completed"
-          value={MOCK_DASHBOARD_STATS.completedOrders}
+          value={stats.completedOrders}
           subtitle="Billed & closed"
           icon="✅"
           accentColor="gold"
@@ -259,11 +174,11 @@ export default function AdminDashboardPage() {
         {/* 5. Pending Orders */}
         <StatCard
           title="Pending Orders"
-          value={MOCK_DASHBOARD_STATS.pendingOrders}
+          value={stats.pendingOrders}
           subtitle="Active in kitchen"
           icon="⏳"
           accentColor="red"
-          trend={{ value: "4 New • 5 Prep", isPositive: false }}
+          trend={{ value: "Live active orders", isPositive: false }}
         />
       </div>
 
@@ -302,7 +217,7 @@ export default function AdminDashboardPage() {
                 View Live Orders
               </h4>
               <p className="text-xs text-zinc-400 truncate">
-                {MOCK_DASHBOARD_STATS.pendingOrders} tickets in kitchen
+                {stats.pendingOrders} tickets in kitchen
               </p>
             </div>
           </Link>
@@ -513,7 +428,7 @@ export default function AdminDashboardPage() {
                 Recent Active Orders
               </h3>
               <span className="bg-red-50 text-red-700 text-xs px-2.5 py-0.5 rounded-full font-bold border border-red-200">
-                {MOCK_RECENT_ORDERS.filter((o) => o.status === "RECEIVED").length} New
+                {recentOrders.filter((o) => o.status === "RECEIVED").length} New
               </span>
             </div>
             <p className="text-xs text-zinc-500 font-medium">
@@ -544,7 +459,7 @@ export default function AdminDashboardPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-100 font-medium text-zinc-700">
-              {MOCK_RECENT_ORDERS.map((order) => {
+              {recentOrders.map((order) => {
                 const elapsedMin = Math.round(
                   (Date.now() - order.createdAt) / (1000 * 60)
                 );

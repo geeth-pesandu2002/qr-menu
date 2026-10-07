@@ -1,26 +1,37 @@
 import { initializeApp, getApps, cert } from "firebase-admin/app";
-import { getFirestore } from "firebase-admin/firestore";
+import { getFirestore, Firestore } from "firebase-admin/firestore";
 
-function requiredEnv(name: string): string {
-  const value = process.env[name]?.trim();
+export function hasFirebaseAdminCredentials(): boolean {
+  return Boolean(
+    process.env.FIREBASE_PROJECT_ID?.trim() &&
+    process.env.FIREBASE_CLIENT_EMAIL?.trim() &&
+    process.env.FIREBASE_PRIVATE_KEY?.trim()
+  );
+}
 
-  if (!value) {
-    throw new Error(`Missing required environment variable: ${name}`);
+export function getAdminDb(): Firestore | null {
+  if (!hasFirebaseAdminCredentials()) {
+    return null;
   }
 
-  return value.replace(/^(["'])([\s\S]*)\1$/, "$2");
-}
+  try {
+    const projectId = process.env.FIREBASE_PROJECT_ID!.trim().replace(/^(["'])([\s\S]*)\1$/, "$2");
+    const clientEmail = process.env.FIREBASE_CLIENT_EMAIL!.trim().replace(/^(["'])([\s\S]*)\1$/, "$2");
+    const privateKey = process.env.FIREBASE_PRIVATE_KEY!.trim().replace(/\\n/g, "\n").replace(/^(["'])([\s\S]*)\1$/, "$2");
 
-export function getAdminDb() {
-  const app = getApps().length
-    ? getApps()[0]
-    : initializeApp({
-        credential: cert({
-          projectId: requiredEnv("FIREBASE_PROJECT_ID"),
-          clientEmail: requiredEnv("FIREBASE_CLIENT_EMAIL"),
-          privateKey: requiredEnv("FIREBASE_PRIVATE_KEY").replace(/\\n/g, "\n"),
-        }),
-      });
+    const app = getApps().length
+      ? getApps()[0]
+      : initializeApp({
+          credential: cert({
+            projectId,
+            clientEmail,
+            privateKey,
+          }),
+        });
 
-  return getFirestore(app);
-}
+    return getFirestore(app);
+  } catch (err) {
+    console.warn("⚠️ Firebase Admin initialization failed, falling back to local database store:", err);
+    return null;
+  }
+}

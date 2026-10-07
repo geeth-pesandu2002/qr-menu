@@ -1,82 +1,16 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { Category } from "@/src/lib/types";
 import CategoryModal from "@/src/components/admin/categories/CategoryModal";
+import { getAuthHeaders } from "@/src/lib/auth-client";
 
 interface AdminCategoryItem extends Category {
   itemsCount: number;
 }
 
-const INITIAL_MOCK_CATEGORIES: AdminCategoryItem[] = [
-  {
-    id: "burgers",
-    name: "Burgers",
-    icon: "🍔",
-    sortOrder: 1,
-    isActive: true,
-    itemsCount: 6,
-    imageUrl: "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=400&auto=format&fit=crop&q=80",
-    createdAt: Date.now() - 1000 * 60 * 60 * 24 * 30,
-    updatedAt: Date.now() - 1000 * 60 * 60 * 24 * 5,
-  },
-  {
-    id: "pizza",
-    name: "Artisan Pizzas",
-    icon: "🍕",
-    sortOrder: 2,
-    isActive: true,
-    itemsCount: 5,
-    imageUrl: "https://images.unsplash.com/photo-1604382354936-07c5d9983bd3?w=400&auto=format&fit=crop&q=80",
-    createdAt: Date.now() - 1000 * 60 * 60 * 24 * 28,
-    updatedAt: Date.now() - 1000 * 60 * 60 * 24 * 4,
-  },
-  {
-    id: "pasta",
-    name: "Italian Pastas",
-    icon: "🍝",
-    sortOrder: 3,
-    isActive: true,
-    itemsCount: 4,
-    imageUrl: "https://images.unsplash.com/photo-1551183053-bf91a1d81141?w=400&auto=format&fit=crop&q=80",
-    createdAt: Date.now() - 1000 * 60 * 60 * 24 * 25,
-    updatedAt: Date.now() - 1000 * 60 * 60 * 24 * 3,
-  },
-  {
-    id: "drinks",
-    name: "Cold & Hot Beverages",
-    icon: "🥤",
-    sortOrder: 4,
-    isActive: true,
-    itemsCount: 4,
-    imageUrl: "https://images.unsplash.com/photo-1517701604599-bb29b565090c?w=400&auto=format&fit=crop&q=80",
-    createdAt: Date.now() - 1000 * 60 * 60 * 24 * 20,
-    updatedAt: Date.now() - 1000 * 60 * 60 * 24 * 2,
-  },
-  {
-    id: "desserts",
-    name: "Gourmet Desserts",
-    icon: "🍰",
-    sortOrder: 5,
-    isActive: true,
-    itemsCount: 3,
-    imageUrl: "https://images.unsplash.com/photo-1571877227200-a0d98ea607e9?w=400&auto=format&fit=crop&q=80",
-    createdAt: Date.now() - 1000 * 60 * 60 * 24 * 18,
-    updatedAt: Date.now() - 1000 * 60 * 60 * 24 * 1,
-  },
-  {
-    id: "specials",
-    name: "Seasonal Specials",
-    icon: "✨",
-    sortOrder: 6,
-    isActive: false, // Inactive category demonstration
-    itemsCount: 2,
-    imageUrl: null,
-    createdAt: Date.now() - 1000 * 60 * 60 * 24 * 10,
-    updatedAt: Date.now() - 1000 * 60 * 60 * 12,
-  },
-];
+const INITIAL_MOCK_CATEGORIES: AdminCategoryItem[] = [];
 
 export default function AdminCategoriesPage() {
   const [categories, setCategories] = useState<AdminCategoryItem[]>(INITIAL_MOCK_CATEGORIES);
@@ -88,50 +22,157 @@ export default function AdminCategoriesPage() {
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
   const [categoryToDelete, setCategoryToDelete] = useState<AdminCategoryItem | null>(null);
 
+  // Live category loading from backend
+  useEffect(() => {
+    let isMounted = true;
+    async function loadCategories() {
+      try {
+        const res = await fetch("/api/categories");
+        if (res.ok) {
+          const json = await res.json();
+          if (json.success && Array.isArray(json.data) && isMounted) {
+            setCategories(
+              json.data.map((c: Category) => ({
+                ...c,
+                itemsCount: (c as AdminCategoryItem).itemsCount ?? 0,
+              }))
+            );
+          }
+        }
+      } catch (err) {
+        console.warn("Could not fetch live categories:", err);
+      }
+    }
+    loadCategories();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
   // Summary Metrics
   const activeCount = categories.filter((c) => c.isActive).length;
   const totalItemsAssigned = categories.reduce((sum, c) => sum + c.itemsCount, 0);
   const mostOrderedCategory = "Burgers • 42% of orders";
 
-  // Toggle active status directly
-  const handleToggleStatus = (id: string) => {
+  // Toggle active status directly with backend sync
+  const handleToggleStatus = async (id: string) => {
+    let newStatus = true;
     setCategories((prev) =>
-      prev.map((c) => (c.id === id ? { ...c, isActive: !c.isActive, updatedAt: Date.now() } : c))
+      prev.map((c) => {
+        if (c.id === id) {
+          newStatus = !c.isActive;
+          return { ...c, isActive: newStatus, updatedAt: Date.now() };
+        }
+        return c;
+      })
     );
+
+    try {
+      const authHeaders = await getAuthHeaders();
+      const res = await fetch(`/api/categories/${id}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          ...authHeaders,
+        },
+        body: JSON.stringify({ isActive: newStatus }),
+      });
+      if (!res.ok) {
+        const json = await res.json().catch(() => ({}));
+        console.error("Failed to update category status:", json.error || res.statusText);
+      }
+    } catch (err) {
+      console.warn("Failed to update category status on server:", err);
+    }
   };
 
-  // Save (Create or Edit)
-  const handleSaveCategory = (data: Partial<Category>) => {
-    if (editingCategory) {
-      setCategories((prev) =>
-        prev.map((c) =>
-          c.id === editingCategory.id
-            ? { ...c, ...data, updatedAt: Date.now() }
-            : c
-        )
-      );
-    } else {
-      const newCategory: AdminCategoryItem = {
-        id: `cat_${Date.now()}`,
-        name: data.name || "Untitled Category",
-        icon: data.icon || "🍽️",
-        sortOrder: data.sortOrder || categories.length + 1,
-        imageUrl: data.imageUrl || null,
-        isActive: data.isActive ?? true,
-        itemsCount: 0,
-        createdAt: Date.now(),
-        updatedAt: Date.now(),
-      };
-      setCategories((prev) => [...prev, newCategory]);
+  // Save (Create or Edit) with backend sync
+  const handleSaveCategory = async (data: Partial<Category>) => {
+    try {
+      const authHeaders = await getAuthHeaders();
+      if (editingCategory) {
+        setCategories((prev) =>
+          prev.map((c) =>
+            c.id === editingCategory.id
+              ? { ...c, ...data, updatedAt: Date.now() }
+              : c
+          )
+        );
+
+        const res = await fetch(`/api/categories/${editingCategory.id}`, {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            ...authHeaders,
+          },
+          body: JSON.stringify(data),
+        });
+        if (!res.ok) {
+          const json = await res.json().catch(() => ({}));
+          alert(`Failed to update category: ${json.error || res.statusText}`);
+        }
+      } else {
+        const newCategory: AdminCategoryItem = {
+          id: `cat_${Date.now()}`,
+          name: data.name || "Untitled Category",
+          icon: data.icon || "🍽️",
+          sortOrder: data.sortOrder || categories.length + 1,
+          imageUrl: data.imageUrl || null,
+          isActive: data.isActive ?? true,
+          itemsCount: 0,
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+        };
+
+        const res = await fetch("/api/categories", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...authHeaders,
+          },
+          body: JSON.stringify(newCategory),
+        });
+
+        if (res.ok) {
+          const json = await res.json();
+          if (json.data) {
+            setCategories((prev) => [...prev, { ...json.data, itemsCount: 0 }]);
+          } else {
+            setCategories((prev) => [...prev, newCategory]);
+          }
+        } else {
+          const json = await res.json().catch(() => ({}));
+          alert(`Failed to create category: ${json.error || res.statusText}`);
+        }
+      }
+    } catch (err) {
+      console.warn("Category mutation failed:", err);
     }
     setEditingCategory(null);
   };
 
-  // Delete
-  const confirmDelete = () => {
+  // Delete with backend sync
+  const confirmDelete = async () => {
     if (!categoryToDelete) return;
-    setCategories((prev) => prev.filter((c) => c.id !== categoryToDelete.id));
+    const catId = categoryToDelete.id;
     setCategoryToDelete(null);
+
+    try {
+      const authHeaders = await getAuthHeaders();
+      const res = await fetch(`/api/categories/${catId}`, {
+        method: "DELETE",
+        headers: authHeaders,
+      });
+
+      if (res.ok) {
+        setCategories((prev) => prev.filter((c) => c.id !== catId));
+      } else {
+        const json = await res.json().catch(() => ({}));
+        alert(`Failed to delete category: ${json.error || res.statusText}`);
+      }
+    } catch (err) {
+      console.warn("Failed to delete category on server:", err);
+    }
   };
 
   // Filtered categories

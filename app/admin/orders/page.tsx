@@ -1,148 +1,13 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { Order, OrderStatus, formatPrice } from "@/src/lib/types";
 import OrderCard from "@/src/components/admin/orders/OrderCard";
+import { getAuthHeaders } from "@/src/lib/auth-client";
 
-// Initial mock orders strictly adhering to existing domain Order and OrderStatus types
-const INITIAL_MOCK_ORDERS: Order[] = [
-  {
-    id: "1048",
-    tableId: "05",
-    tableLabel: "Table 05",
-    sessionId: "sess_1048",
-    status: "RECEIVED",
-    lines: [
-      { itemId: "k1", name: "Chicken Kottu", variantLabel: "Large", unitPrice: 1100, qty: 2, note: "Extra spicy" },
-      { itemId: "d1", name: "Coke Can", variantLabel: null, unitPrice: 300, qty: 2, note: "" },
-    ],
-    subtotal: 2800,
-    serviceCharge: 140,
-    tax: 280,
-    total: 3220,
-    createdAt: Date.now() - 1000 * 60 * 3, // 3 mins ago
-    updatedAt: Date.now() - 1000 * 60 * 3,
-  },
-  {
-    id: "1049",
-    tableId: "04",
-    tableLabel: "Table 04",
-    sessionId: "sess_1049",
-    status: "RECEIVED",
-    lines: [
-      { itemId: "k2", name: "Cheese Kottu", variantLabel: null, unitPrice: 1100, qty: 1, note: "Extra melted cheese" },
-      { itemId: "t1", name: "Plain Tea", variantLabel: "Regular", unitPrice: 100, qty: 2, note: "" },
-    ],
-    subtotal: 1300,
-    serviceCharge: 65,
-    tax: 130,
-    total: 1495,
-    createdAt: Date.now() - 1000 * 60 * 6, // 6 mins ago
-    updatedAt: Date.now() - 1000 * 60 * 6,
-  },
-  {
-    id: "1047",
-    tableId: "02",
-    tableLabel: "Table 02",
-    sessionId: "sess_1047",
-    status: "PREPARING",
-    lines: [
-      { itemId: "p1", name: "Margherita Pizza", variantLabel: null, unitPrice: 1500, qty: 1, note: "Crispy crust" },
-      { itemId: "f1", name: "French Fries", variantLabel: null, unitPrice: 500, qty: 1, note: "Extra ketchup" },
-    ],
-    subtotal: 2000,
-    serviceCharge: 100,
-    tax: 200,
-    total: 2300,
-    createdAt: Date.now() - 1000 * 60 * 12, // 12 mins ago
-    updatedAt: Date.now() - 1000 * 60 * 6,
-  },
-  {
-    id: "1046",
-    tableId: "08",
-    tableLabel: "Table 08",
-    sessionId: "sess_1046",
-    status: "PREPARING",
-    lines: [
-      { itemId: "b2", name: "Beef Burger Deluxe", variantLabel: null, unitPrice: 1350, qty: 2, note: "No pickles" },
-      { itemId: "d2", name: "Iced Coffee", variantLabel: "Regular", unitPrice: 600, qty: 2, note: "" },
-    ],
-    subtotal: 3900,
-    serviceCharge: 195,
-    tax: 390,
-    total: 4485,
-    createdAt: Date.now() - 1000 * 60 * 18, // 18 mins ago
-    updatedAt: Date.now() - 1000 * 60 * 8,
-  },
-  {
-    id: "1045",
-    tableId: "03",
-    tableLabel: "Table 03",
-    sessionId: "sess_1045",
-    status: "SERVED",
-    lines: [
-      { itemId: "pa1", name: "Creamy Chicken Pasta", variantLabel: null, unitPrice: 1400, qty: 1, note: "" },
-      { itemId: "g1", name: "Garlic Bread", variantLabel: null, unitPrice: 400, qty: 1, note: "" },
-    ],
-    subtotal: 1800,
-    serviceCharge: 90,
-    tax: 180,
-    total: 2070,
-    createdAt: Date.now() - 1000 * 60 * 25, // 25 mins ago
-    updatedAt: Date.now() - 1000 * 60 * 12,
-  },
-  {
-    id: "1044",
-    tableId: "07",
-    tableLabel: "Table 07",
-    sessionId: "sess_1044",
-    status: "SERVED",
-    lines: [
-      { itemId: "cs1", name: "Caesar Salad", variantLabel: null, unitPrice: 1100, qty: 2, note: "Dressing on the side" },
-      { itemId: "l1", name: "Fresh Lemonade", variantLabel: null, unitPrice: 650, qty: 2, note: "Less sugar" },
-    ],
-    subtotal: 3500,
-    serviceCharge: 175,
-    tax: 350,
-    total: 4025,
-    createdAt: Date.now() - 1000 * 60 * 35, // 35 mins ago
-    updatedAt: Date.now() - 1000 * 60 * 16,
-  },
-  {
-    id: "1043",
-    tableId: "01",
-    tableLabel: "Table 01",
-    sessionId: "sess_1043",
-    status: "COMPLETED",
-    lines: [
-      { itemId: "fr1", name: "Mixed Fried Rice", variantLabel: null, unitPrice: 750, qty: 2, note: "" },
-      { itemId: "mc1", name: "Hot Milk Coffee", variantLabel: "Large", unitPrice: 200, qty: 2, note: "" },
-    ],
-    subtotal: 1900,
-    serviceCharge: 95,
-    tax: 190,
-    total: 2185,
-    createdAt: Date.now() - 1000 * 60 * 55, // 55 mins ago
-    updatedAt: Date.now() - 1000 * 60 * 20,
-  },
-  {
-    id: "1042",
-    tableId: "06",
-    tableLabel: "Table 06",
-    sessionId: "sess_1042",
-    status: "CANCELLED",
-    lines: [
-      { itemId: "fb1", name: "Spicy Fish Bun", variantLabel: null, unitPrice: 120, qty: 2, note: "" },
-    ],
-    subtotal: 240,
-    serviceCharge: 12,
-    tax: 24,
-    total: 276,
-    createdAt: Date.now() - 1000 * 60 * 68, // 68 mins ago
-    updatedAt: Date.now() - 1000 * 60 * 65,
-  },
-];
+// Initial orders strictly adhering to existing domain Order and OrderStatus types
+const INITIAL_MOCK_ORDERS: Order[] = [];
 
 type FilterTab = "ALL" | OrderStatus;
 
@@ -160,8 +25,33 @@ export default function AdminOrdersPage() {
   const [activeTab, setActiveTab] = useState<FilterTab>("ALL");
   const [searchQuery, setSearchQuery] = useState<string>("");
 
-  // Status transition handler for mock UI state
-  const handleStatusTransition = (orderId: string, nextStatus: OrderStatus) => {
+  // Live order polling from backend
+  useEffect(() => {
+    let isMounted = true;
+    async function fetchOrders() {
+      try {
+        const res = await fetch("/api/orders");
+        if (res.ok) {
+          const json = await res.json();
+          if (json.success && Array.isArray(json.data) && isMounted) {
+            setOrders(json.data);
+          }
+        }
+      } catch (err) {
+        console.warn("Could not fetch live orders for admin:", err);
+      }
+    }
+
+    fetchOrders();
+    const interval = setInterval(fetchOrders, 4000);
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, []);
+
+  // Status transition handler with live backend sync
+  const handleStatusTransition = async (orderId: string, nextStatus: OrderStatus) => {
     setOrders((prev) =>
       prev.map((order) => {
         if (order.id === orderId) {
@@ -182,6 +72,24 @@ export default function AdminOrdersPage() {
         return order;
       })
     );
+
+    try {
+      const authHeaders = await getAuthHeaders();
+      const res = await fetch(`/api/orders/${orderId}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          ...authHeaders,
+        },
+        body: JSON.stringify({ status: nextStatus }),
+      });
+      if (!res.ok) {
+        const json = await res.json().catch(() => ({}));
+        alert(`Failed to update order status: ${json.error || res.statusText}`);
+      }
+    } catch (err) {
+      console.warn("Failed to persist order status transition:", err);
+    }
   };
 
   // Compute live counts

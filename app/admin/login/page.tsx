@@ -3,24 +3,49 @@
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { loginWithFirebase } from "@/src/lib/auth-client";
 
 export default function AdminLoginPage() {
   const router = useRouter();
 
   const [email, setEmail] = useState("owner@cozycafe.com");
-  const [password, setPassword] = useState("••••••••");
+  const [password, setPassword] = useState("");
   const [rememberMe, setRememberMe] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
+    setErrorMessage(null);
 
-    // Frontend-only simulation for milestone 1
-    setTimeout(() => {
+    try {
+      await loginWithFirebase(email, password);
       router.push("/admin/dashboard");
-    }, 400);
+    } catch (err: any) {
+      console.warn("Firebase Auth signin attempt:", err?.message || err);
+      
+      // If running locally without active Firebase Auth backend configured
+      if (process.env.NODE_ENV === "development" && (!process.env.NEXT_PUBLIC_FIREBASE_API_KEY || err?.code === "auth/invalid-api-key" || err?.code === "auth/network-request-failed" || err?.code === "auth/configuration-not-found")) {
+        localStorage.setItem("dinego_auth_token", "dev-owner-token");
+        localStorage.setItem(
+          "dinego_admin_user",
+          JSON.stringify({ email, role: "owner", loginTime: Date.now() })
+        );
+        document.cookie = "dinego_owner_session=active; path=/; max-age=86400; SameSite=Strict";
+        router.push("/admin/dashboard");
+        return;
+      }
+
+      setErrorMessage(
+        err?.code === "auth/invalid-credential" || err?.code === "auth/user-not-found" || err?.code === "auth/wrong-password"
+          ? "Invalid email or password. Please check your credentials."
+          : err?.message || "Authentication failed. Please try again."
+      );
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -28,7 +53,6 @@ export default function AdminLoginPage() {
       <div className="w-full max-w-4xl bg-white rounded-3xl overflow-hidden shadow-2xl grid grid-cols-1 md:grid-cols-12 min-h-[580px]">
         {/* Left Restaurant Visual Panel */}
         <div className="md:col-span-6 relative p-8 sm:p-10 flex flex-col justify-between text-white bg-zinc-950 overflow-hidden min-h-[260px] md:min-h-full">
-          {/* Background Image with dark culinary atmosphere */}
           <div
             className="absolute inset-0 bg-cover bg-center opacity-45"
             style={{
@@ -93,6 +117,14 @@ export default function AdminLoginPage() {
               </p>
             </div>
 
+            {/* Error Message Box */}
+            {errorMessage && (
+              <div className="p-3.5 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs font-semibold flex items-start gap-2.5">
+                <span className="text-base leading-none">⚠️</span>
+                <span className="flex-1">{errorMessage}</span>
+              </div>
+            )}
+
             {/* Login Form */}
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-1.5">
@@ -151,7 +183,7 @@ export default function AdminLoginPage() {
 
                 <button
                   type="button"
-                  onClick={() => alert("Please contact your system administrator to reset owner credentials.")}
+                  onClick={() => alert("Please contact system administrator to reset password.")}
                   className="text-xs font-semibold text-[#FF6B2C] hover:text-[#E55A1F] hover:underline"
                 >
                   Forgot password?
@@ -165,7 +197,7 @@ export default function AdminLoginPage() {
                 className="w-full py-3.5 rounded-xl bg-[#FF6B2C] hover:bg-[#E55A1F] text-white font-bold text-sm transition-all shadow-lg shadow-[#FF6B2C]/25 flex items-center justify-center gap-2 disabled:opacity-70 mt-2"
               >
                 {isLoading ? (
-                  <span>Signing in...</span>
+                  <span>Authenticating...</span>
                 ) : (
                   <>
                     <span>Sign In to Dashboard</span>

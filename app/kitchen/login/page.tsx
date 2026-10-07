@@ -132,6 +132,23 @@ export default function KitchenLoginPage() {
                 <span>→</span>
                 <span>Sign In</span>
               </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setEmail("staff@cozycafe.com");
+                  if (login("staff@cozycafe.com")) {
+                    try {
+                      localStorage.setItem("dinego_auth_token", "Bearer staff-token");
+                    } catch {}
+                    router.push("/kitchen/dashboard");
+                  }
+                }}
+                className="w-full py-2.5 rounded-xl bg-zinc-100 hover:bg-zinc-200 text-zinc-800 font-bold text-xs transition-all flex items-center justify-center gap-1.5"
+              >
+                <span>⚡</span>
+                <span>Demo Staff 1-Click Access</span>
+              </button>
             </form>
 
             <div className="text-center pt-2">

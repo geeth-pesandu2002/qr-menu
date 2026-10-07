@@ -122,12 +122,22 @@ export default function AdminHeader({ onMobileMenuToggle }: AdminHeaderProps) {
           {currentTime || "Live"}
         </span>
 
-        {/* Quick Portal Switcher */}
+        {/* Quick Portal Switchers */}
         <Link
-          href="/t/05"
+          href="/kitchen/dashboard"
+          target="_blank"
+          className="hidden xl:flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200/80 transition-colors"
+          title="Open kitchen orders feed"
+        >
+          <span>👨‍🍳</span>
+          <span>Kitchen Feed</span>
+        </Link>
+
+        <Link
+          href="/t/01"
           target="_blank"
           className="hidden xl:flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-zinc-100 hover:bg-zinc-200 text-zinc-700 transition-colors"
-          title="Open customer menu preview"
+          title="Open customer menu preview (Table 01)"
         >
           <span>📱</span>
           <span>Diner View</span>

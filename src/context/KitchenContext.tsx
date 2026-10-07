@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { Order, OrderStatus } from "../lib/types";
+import { getAuthHeaders } from "@/src/lib/auth-client";
 
 export interface KitchenOrder extends Order {
   elapsedMinutes?: number;
@@ -16,6 +17,8 @@ interface KitchenContextType {
   getOrdersByStatus: (statusGroup: "NEW" | "PREPARING" | "READY" | "SERVED") => KitchenOrder[];
   activeOrder: KitchenOrder | null;
   setActiveOrder: (order: KitchenOrder | null) => void;
+  addKitchenOrder: (order: Order) => void;
+  refreshKitchenOrders: () => Promise<void>;
 }
 
 // Initial mock orders matching the Kitchen Staff UI screenshot (Tables 05, 03, 02, 07, 08, 06)
@@ -34,8 +37,8 @@ const DEFAULT_KITCHEN_ORDERS: KitchenOrder[] = [
     subtotal: 2000,
     serviceCharge: 100,
     total: 2000,
-    createdAt: Date.now() - 1000 * 60 * 2, // 2 mins ago
-    updatedAt: Date.now(),
+    createdAt: 1720780000000,
+    updatedAt: 1720780000000,
     elapsedMinutes: 2,
   },
   {
@@ -51,8 +54,8 @@ const DEFAULT_KITCHEN_ORDERS: KitchenOrder[] = [
     subtotal: 2700,
     serviceCharge: 135,
     total: 2700,
-    createdAt: Date.now() - 1000 * 60 * 4, // 4 mins ago
-    updatedAt: Date.now(),
+    createdAt: 1720779800000,
+    updatedAt: 1720779800000,
     elapsedMinutes: 4,
   },
   {
@@ -68,8 +71,8 @@ const DEFAULT_KITCHEN_ORDERS: KitchenOrder[] = [
     subtotal: 1800,
     serviceCharge: 90,
     total: 1800,
-    createdAt: Date.now() - 1000 * 60 * 6, // 6 mins ago
-    updatedAt: Date.now(),
+    createdAt: 1720779600000,
+    updatedAt: 1720779600000,
     elapsedMinutes: 6,
   },
   {
@@ -85,8 +88,8 @@ const DEFAULT_KITCHEN_ORDERS: KitchenOrder[] = [
     subtotal: 1800,
     serviceCharge: 90,
     total: 1800,
-    createdAt: Date.now() - 1000 * 60 * 10, // 10 mins ago
-    updatedAt: Date.now(),
+    createdAt: 1720779200000,
+    updatedAt: 1720779200000,
     elapsedMinutes: 10,
   },
   {
@@ -102,8 +105,8 @@ const DEFAULT_KITCHEN_ORDERS: KitchenOrder[] = [
     subtotal: 1750,
     serviceCharge: 87,
     total: 1750,
-    createdAt: Date.now() - 1000 * 60 * 12, // 12 mins ago
-    updatedAt: Date.now(),
+    createdAt: 1720779000000,
+    updatedAt: 1720779000000,
     elapsedMinutes: 12,
   },
   {
@@ -119,8 +122,8 @@ const DEFAULT_KITCHEN_ORDERS: KitchenOrder[] = [
     subtotal: 2050,
     serviceCharge: 100,
     total: 2050,
-    createdAt: Date.now() - 1000 * 60 * 15, // 15 mins ago
-    updatedAt: Date.now(),
+    createdAt: 1720778700000,
+    updatedAt: 1720778700000,
     elapsedMinutes: 15,
   },
 ];
@@ -128,28 +131,69 @@ const DEFAULT_KITCHEN_ORDERS: KitchenOrder[] = [
 const KitchenContext = createContext<KitchenContextType | undefined>(undefined);
 
 export const KitchenProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
-    if (typeof window === "undefined") return false;
-    return localStorage.getItem("dinego_kitchen_auth") === "true";
-  });
-
-  const [kitchenOrders, setKitchenOrders] = useState<KitchenOrder[]>(() => {
-    if (typeof window === "undefined") return DEFAULT_KITCHEN_ORDERS;
-    try {
-      const saved = localStorage.getItem("dinego_kitchen_orders");
-      return saved ? JSON.parse(saved) : DEFAULT_KITCHEN_ORDERS;
-    } catch {
-      return DEFAULT_KITCHEN_ORDERS;
-    }
-  });
-
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
+  const [kitchenOrders, setKitchenOrders] = useState<KitchenOrder[]>(DEFAULT_KITCHEN_ORDERS);
   const [activeOrder, setActiveOrder] = useState<KitchenOrder | null>(null);
+  const [isLoaded, setIsLoaded] = useState<boolean>(false);
 
+  // Load from localStorage after initial client mount to prevent SSR hydration mismatches
   useEffect(() => {
+    try {
+      const savedAuth = localStorage.getItem("dinego_kitchen_auth");
+      if (savedAuth === "true") setIsAuthenticated(true);
+
+      const savedOrders = localStorage.getItem("dinego_kitchen_orders");
+      if (savedOrders) setKitchenOrders(JSON.parse(savedOrders));
+    } catch {}
+    setIsLoaded(true);
+  }, []);
+
+  // Poll backend /api/orders in real-time
+  useEffect(() => {
+    let isMounted = true;
+    const fetchApiOrders = async () => {
+      try {
+        const authHeaders = await getAuthHeaders();
+        const res = await fetch("/api/orders", {
+          headers: authHeaders,
+        });
+        if (res.ok) {
+          const json = await res.json();
+          if (json.success && Array.isArray(json.data) && isMounted) {
+            setKitchenOrders((prev) => {
+              const serverOrders: KitchenOrder[] = json.data.map((o: Order) => {
+                const existing = prev.find((p) => p.id === o.id);
+                return {
+                  ...o,
+                  elapsedMinutes:
+                    existing?.elapsedMinutes ??
+                    Math.max(1, Math.round((Date.now() - o.createdAt) / 60000)),
+                };
+              });
+              return serverOrders;
+            });
+          }
+        }
+      } catch (err) {
+        console.warn("Kitchen could not poll /api/orders:", err);
+      }
+    };
+
+    fetchApiOrders();
+    const interval = setInterval(fetchApiOrders, 4000);
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, []);
+
+  // Sync changes to localStorage only after initial load
+  useEffect(() => {
+    if (!isLoaded) return;
     try {
       localStorage.setItem("dinego_kitchen_orders", JSON.stringify(kitchenOrders));
     } catch {}
-  }, [kitchenOrders]);
+  }, [kitchenOrders, isLoaded]);
 
   const login = (email: string) => {
     if (email.trim().length > 0) {
@@ -165,13 +209,31 @@ export const KitchenProvider: React.FC<{ children: React.ReactNode }> = ({ child
     localStorage.removeItem("dinego_kitchen_auth");
   };
 
-  const updateOrderStatus = (orderId: string, newStatus: OrderStatus) => {
+  const updateOrderStatus = async (orderId: string, newStatus: OrderStatus) => {
     setKitchenOrders((prev) =>
       prev.map((o) => (o.id === orderId ? { ...o, status: newStatus, updatedAt: Date.now() } : o))
     );
 
     if (activeOrder && activeOrder.id === orderId) {
       setActiveOrder((prev) => (prev ? { ...prev, status: newStatus } : null));
+    }
+
+    try {
+      const authHeaders = await getAuthHeaders();
+      const res = await fetch(`/api/orders/${orderId}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          ...authHeaders,
+        },
+        body: JSON.stringify({ status: newStatus }),
+      });
+      if (!res.ok) {
+        const json = await res.json().catch(() => ({}));
+        alert(`Failed to update kitchen order status: ${json.error || res.statusText}`);
+      }
+    } catch (err) {
+      console.warn("Could not patch order status to API:", err);
     }
   };
 
@@ -190,6 +252,42 @@ export const KitchenProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
   };
 
+  const refreshKitchenOrders = async () => {
+    try {
+      const authHeaders = await getAuthHeaders();
+      const res = await fetch("/api/orders", {
+        headers: authHeaders,
+      });
+      if (res.ok) {
+        const json = await res.json();
+        if (json.success && Array.isArray(json.data)) {
+          setKitchenOrders((prev) => {
+            const serverOrders: KitchenOrder[] = json.data.map((o: Order) => {
+              const existing = prev.find((p) => p.id === o.id);
+              return {
+                ...o,
+                elapsedMinutes:
+                  existing?.elapsedMinutes ??
+                  Math.max(1, Math.round((Date.now() - o.createdAt) / 60000)),
+              };
+            });
+            return serverOrders;
+          });
+        }
+      }
+    } catch (err) {
+      console.warn("Kitchen refresh error:", err);
+    }
+  };
+
+  const addKitchenOrder = (newOrder: Order) => {
+    const kitchenItem: KitchenOrder = {
+      ...newOrder,
+      elapsedMinutes: 1,
+    };
+    setKitchenOrders((prev) => [kitchenItem, ...prev]);
+  };
+
   return (
     <KitchenContext.Provider
       value={{
@@ -201,6 +299,8 @@ export const KitchenProvider: React.FC<{ children: React.ReactNode }> = ({ child
         getOrdersByStatus,
         activeOrder,
         setActiveOrder,
+        addKitchenOrder,
+        refreshKitchenOrders,
       }}
     >
       {children}

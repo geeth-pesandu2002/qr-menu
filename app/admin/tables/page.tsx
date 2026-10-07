@@ -1,8 +1,9 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { Table } from "@/src/lib/types";
+import { getAuthHeaders } from "@/src/lib/auth-client";
 import TableCard from "@/src/components/admin/tables/TableCard";
 import TableModal from "@/src/components/admin/tables/TableModal";
 import QRCodeModal from "@/src/components/admin/tables/QRCodeModal";
@@ -101,56 +102,155 @@ export default function AdminTablesPage() {
   const [qrModalTable, setQrModalTable] = useState<Table | null>(null);
   const [tableToDelete, setTableToDelete] = useState<Table | null>(null);
 
+  // Live tables loading from backend
+  useEffect(() => {
+    let isMounted = true;
+    async function loadTables() {
+      try {
+        const res = await fetch("/api/tables");
+        if (res.ok) {
+          const json = await res.json();
+          if (json.success && Array.isArray(json.data) && isMounted) {
+            setTables(json.data);
+          }
+        }
+      } catch (err) {
+        console.warn("Could not fetch live tables:", err);
+      }
+    }
+    loadTables();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
   // Summary Metrics
   const totalTables = tables.length;
   const activeTables = tables.filter((t) => t.isActive).length;
   const inactiveTables = tables.filter((t) => !t.isActive).length;
   const qrReadyCount = tables.filter((t) => Boolean(t.qrToken || t.qrUrl)).length;
 
-  // Status toggle handler
-  const handleToggleStatus = (tableId: string) => {
+  // Status toggle handler with backend sync
+  const handleToggleStatus = async (tableId: string) => {
+    let newStatus = true;
     setTables((prev) =>
-      prev.map((t) =>
-        t.id === tableId
-          ? { ...t, isActive: !t.isActive, updatedAt: Date.now() }
-          : t
-      )
+      prev.map((t) => {
+        if (t.id === tableId) {
+          newStatus = !t.isActive;
+          return { ...t, isActive: newStatus, updatedAt: Date.now() };
+        }
+        return t;
+      })
     );
+
+    try {
+      const authHeaders = await getAuthHeaders();
+      const res = await fetch(`/api/tables/${tableId}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          ...authHeaders,
+        },
+        body: JSON.stringify({ isActive: newStatus }),
+      });
+      if (!res.ok) {
+        const json = await res.json().catch(() => ({}));
+        console.error("Failed to update table status:", json.error || res.statusText);
+      }
+    } catch (err) {
+      console.warn("Failed to update table status on server:", err);
+    }
   };
 
-  // Add / Edit Table Save
-  const handleSaveTable = (data: Partial<Table>) => {
-    if (editingTable) {
-      setTables((prev) =>
-        prev.map((t) =>
-          t.id === editingTable.id
-            ? { ...t, ...data, updatedAt: Date.now() }
-            : t
-        )
-      );
-    } else {
-      const newNum = tables.length + 1;
-      const cleanNum = newNum < 10 ? `0${newNum}` : `${newNum}`;
-      const newTable: Table = {
-        id: `t${newNum}`,
-        label: data.label || `Table ${cleanNum}`,
-        seats: data.seats || 4,
-        isActive: data.isActive ?? true,
-        qrToken: `TB${cleanNum}_QR_DEMO`,
-        qrUrl: `/t/${cleanNum}`,
-        createdAt: Date.now(),
-        updatedAt: Date.now(),
-      };
-      setTables((prev) => [...prev, newTable]);
+  // Add / Edit Table Save with backend sync
+  const handleSaveTable = async (data: Partial<Table>) => {
+    try {
+      const authHeaders = await getAuthHeaders();
+      if (editingTable) {
+        setTables((prev) =>
+          prev.map((t) =>
+            t.id === editingTable.id
+              ? { ...t, ...data, updatedAt: Date.now() }
+              : t
+          )
+        );
+
+        const res = await fetch(`/api/tables/${editingTable.id}`, {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            ...authHeaders,
+          },
+          body: JSON.stringify(data),
+        });
+
+        if (!res.ok) {
+          const json = await res.json().catch(() => ({}));
+          alert(`Failed to update table: ${json.error || res.statusText}`);
+        }
+      } else {
+        const newNum = tables.length + 1;
+        const cleanNum = newNum < 10 ? `0${newNum}` : `${newNum}`;
+        const newTable: Table = {
+          id: `t${newNum}`,
+          label: data.label || `Table ${cleanNum}`,
+          seats: data.seats || 4,
+          isActive: data.isActive ?? true,
+          qrToken: `TB${cleanNum}_QR_DEMO`,
+          qrUrl: `/t/${cleanNum}`,
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+        };
+
+        const res = await fetch("/api/tables", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...authHeaders,
+          },
+          body: JSON.stringify(newTable),
+        });
+
+        if (res.ok) {
+          const json = await res.json();
+          if (json.data) {
+            setTables((prev) => [...prev, json.data]);
+          } else {
+            setTables((prev) => [...prev, newTable]);
+          }
+        } else {
+          const json = await res.json().catch(() => ({}));
+          alert(`Failed to create table: ${json.error || res.statusText}`);
+        }
+      }
+    } catch (err) {
+      console.warn("Table mutation failed:", err);
     }
     setEditingTable(null);
   };
 
-  // Delete Table
-  const confirmDelete = () => {
+  // Delete Table with backend sync
+  const confirmDelete = async () => {
     if (!tableToDelete) return;
-    setTables((prev) => prev.filter((t) => t.id !== tableToDelete.id));
+    const tId = tableToDelete.id;
     setTableToDelete(null);
+
+    try {
+      const authHeaders = await getAuthHeaders();
+      const res = await fetch(`/api/tables/${tId}`, {
+        method: "DELETE",
+        headers: authHeaders,
+      });
+
+      if (res.ok) {
+        setTables((prev) => prev.filter((t) => t.id !== tId));
+      } else {
+        const json = await res.json().catch(() => ({}));
+        alert(`Failed to delete table: ${json.error || res.statusText}`);
+      }
+    } catch (err) {
+      console.warn("Failed to delete table on server:", err);
+    }
   };
 
   // Filter tables

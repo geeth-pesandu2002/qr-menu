@@ -15,8 +15,12 @@ const FALLBACK_HISTORY_ORDERS = [
 ];
 
 export default function KitchenOrderHistoryPage() {
-  const { kitchenOrders } = useKitchen();
-  const [selectedDate, setSelectedDate] = useState("12 May 2025");
+  const { kitchenOrders, refreshKitchenOrders } = useKitchen();
+  const [selectedDate, setSelectedDate] = useState("Today");
+
+  React.useEffect(() => {
+    refreshKitchenOrders();
+  }, [refreshKitchenOrders]);
 
   const completedList = kitchenOrders.filter(
     (o) => o.status === "SERVED" || o.status === "COMPLETED"
@@ -86,7 +90,7 @@ export default function KitchenOrderHistoryPage() {
                             Served
                           </span>
                         </td>
-                        <td className="py-4 px-6 text-zinc-500">
+                        <td className="py-4 px-6 text-zinc-500" suppressHydrationWarning>
                           {new Date(order.createdAt).toLocaleTimeString([], {
                             hour: "2-digit",
                             minute: "2-digit",

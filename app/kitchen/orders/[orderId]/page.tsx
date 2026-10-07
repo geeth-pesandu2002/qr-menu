@@ -3,8 +3,8 @@
 import React, { useState, use } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { useKitchen } from "@/src/context/KitchenContext";
-import { formatPrice, OrderStatus } from "@/src/lib/types";
+import { useKitchen, KitchenOrder } from "@/src/context/KitchenContext";
+import { formatPrice, OrderStatus, OrderLine } from "@/src/lib/types";
 
 const DEFAULT_FALLBACK_ORDER = {
   id: "1001",
@@ -62,9 +62,39 @@ export default function KitchenOrderDetailPage({
 
   const { kitchenOrders, updateOrderStatus } = useKitchen();
   const [showPrintModal, setShowPrintModal] = useState<boolean>(false);
+  const [apiOrder, setApiOrder] = useState<KitchenOrder | null>(null);
 
+  React.useEffect(() => {
+    let isMounted = true;
+    async function loadOrder() {
+      try {
+        const res = await fetch(`/api/orders/${orderId}`);
+        if (res.ok) {
+          const json = await res.json();
+          if (json.success && json.data && isMounted) {
+            setApiOrder({
+              ...json.data,
+              elapsedMinutes: Math.max(
+                1,
+                Math.round((Date.now() - json.data.createdAt) / 60000)
+              ),
+            });
+          }
+        }
+      } catch (err) {
+        console.warn("Could not fetch order from API:", err);
+      }
+    }
+    loadOrder();
+    return () => {
+      isMounted = false;
+    };
+  }, [orderId]);
+
+  const activeKitchenOrder = kitchenOrders.find((o) => o.id === orderId);
   const order =
-    kitchenOrders.find((o) => o.id === orderId) || {
+    apiOrder ||
+    activeKitchenOrder || {
       ...DEFAULT_FALLBACK_ORDER,
       id: orderId,
     };
@@ -75,9 +105,17 @@ export default function KitchenOrderDetailPage({
   const isCompleted = order.status === "COMPLETED";
 
   const handleNextStatus = () => {
-    if (isNew) updateOrderStatus(order.id, "PREPARING");
-    else if (isPreparing) updateOrderStatus(order.id, "SERVED");
-    else if (isServed) updateOrderStatus(order.id, "COMPLETED");
+    let nextStatus: OrderStatus | null = null;
+    if (isNew) nextStatus = "PREPARING";
+    else if (isPreparing) nextStatus = "SERVED";
+    else if (isServed) nextStatus = "COMPLETED";
+
+    if (nextStatus) {
+      updateOrderStatus(order.id, nextStatus);
+      if (apiOrder) {
+        setApiOrder({ ...apiOrder, status: nextStatus, updatedAt: Date.now() });
+      }
+    }
   };
 
   const getNextActionText = () => {
@@ -87,7 +125,10 @@ export default function KitchenOrderDetailPage({
     return "Completed";
   };
 
-  const totalItemsCount = order.lines.reduce((acc, l) => acc + l.qty, 0);
+  const totalItemsCount = order.lines.reduce(
+    (acc: number, l: OrderLine) => acc + l.qty,
+    0
+  );
 
   return (
     <div className="max-w-4xl mx-auto space-y-6 font-sans">
@@ -102,7 +143,7 @@ export default function KitchenOrderDetailPage({
         </Link>
         <div className="text-right">
           <span className="text-xs text-zinc-400 font-semibold block">Order Time</span>
-          <span className="text-xs font-bold text-zinc-700">
+          <span className="text-xs font-bold text-zinc-700" suppressHydrationWarning>
             12:22 PM ({order.elapsedMinutes || 2} mins ago)
           </span>
         </div>
@@ -133,7 +174,7 @@ export default function KitchenOrderDetailPage({
             className="px-4 py-2 rounded-xl bg-zinc-100 hover:bg-zinc-200 text-zinc-800 font-bold text-xs flex items-center gap-2 transition-all"
           >
             <span>🖨️</span>
-            <span>Print Ticket</span>
+            <span>Print Bill</span>
           </button>
         </div>
 
@@ -144,7 +185,7 @@ export default function KitchenOrderDetailPage({
           </h2>
 
           <div className="space-y-3 divide-y divide-zinc-100">
-            {order.lines.map((line, idx) => (
+            {order.lines.map((line: OrderLine, idx: number) => (
               <div key={idx} className="pt-3 first:pt-0 flex items-center justify-between gap-4">
                 <div className="flex items-center gap-3">
                   {line.imageUrl ? (
@@ -281,12 +322,12 @@ export default function KitchenOrderDetailPage({
         </div>
       </div>
 
-      {/* Printable Ticket Modal */}
+      {/* Printable Bill Modal */}
       {showPrintModal && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="w-full max-w-sm bg-white p-6 rounded-3xl shadow-2xl space-y-4 text-center font-mono">
             <div className="border-b border-dashed border-zinc-400 pb-3">
-              <h3 className="font-black text-lg text-black">*** KITCHEN TICKET ***</h3>
+              <h3 className="font-black text-lg text-black">*** ORDER BILL ***</h3>
               <p className="text-xs text-zinc-600">{order.tableLabel} • ORDER #{order.id}</p>
               <p className="text-[11px] text-zinc-500 mt-1">
                 {new Date(order.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
@@ -294,7 +335,7 @@ export default function KitchenOrderDetailPage({
             </div>
 
             <div className="text-left text-xs space-y-2 py-2">
-              {order.lines.map((l, i) => (
+              {order.lines.map((l: OrderLine, i: number) => (
                 <div key={i} className="flex justify-between font-bold">
                   <span>{l.name}</span>
                   <span>x{l.qty}</span>
@@ -315,7 +356,7 @@ export default function KitchenOrderDetailPage({
                 }}
                 className="w-full py-3 rounded-full bg-[#121212] text-white font-bold text-xs"
               >
-                🖨️ Print Ticket
+                🖨️ Print Bill
               </button>
               <button
                 onClick={() => setShowPrintModal(false)}

@@ -32,15 +32,11 @@ export async function POST(request: NextRequest) {
     const { createTable, generateQRToken } = await import("@/lib/db-service");
     console.log("≡ƒƒó POST /api/tables called");
     const authHeader = request.headers.get("Authorization");
-    if (!authHeader) {
-      throw new AuthError("Authorization required", 401);
-    }
-
     const token = await verifyToken(authHeader);
     requireRole(token.role, "owner");
 
     const body = await request.json();
-    const qrToken = generateQRToken();
+    const qrToken = body.qrToken || generateQRToken(body.label || "01");
     const qrUrl = `${process.env.NEXT_PUBLIC_APP_URL || "https://qr-menu.vercel.app"}?table=${qrToken}`;
 
     const table = await createTable(
